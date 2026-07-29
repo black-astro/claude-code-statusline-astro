@@ -3,7 +3,7 @@
 A cross-platform, colored status line for [Claude Code](https://claude.com/claude-code).
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▉▉▉▉░░░░░░ ] 42% | 5H [ ▉▉▉▉▉▉░░░░ ] 63% 2h05m
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▮▮▮▮▯▯▯▯▯▯ ] 42% | 5H [ ▮▮▮▮▮▮▯▯▯▯ ] 63% 2h05m
 ```
 
 Two implementations that print byte-identical output, so your status line looks
@@ -108,7 +108,7 @@ since batch cannot parse JSON.
 ## Reading the status line
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▉▉▉▉░░░░░░ ] 42% | 5H [ ▉▉▉▉▉▉░░░░ ] 63% 2h05m
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▮▮▮▮▯▯▯▯▯▯ ] 42% | 5H [ ▮▮▮▮▮▮▯▯▯▯ ] 63% 2h05m
     └── project root              └── branch  └── model      └── context used  └── 5-hour limit used, resets in 2h05m
 ```
 
@@ -263,23 +263,26 @@ Everything worth changing sits in a labeled block at the top of each script.
 **Bar characters.**
 
 ```sh
-BAR_FULL='▉'    BAR_EMPTY='░'    BAR_GAP=''    BAR_PAD=' '      # statusline.sh
+BAR_FULL='▮'    BAR_EMPTY='▯'    BAR_GAP=''    BAR_PAD=' '      # statusline.sh
 ```
 ```powershell
-$BarFull = [string][char]0x2589                                 # statusline.ps1
-$BarEmpty = [string][char]0x2591
+$BarFull = [string][char]0x25AE                                 # statusline.ps1
+$BarEmpty = [string][char]0x25AF
 ```
 
-The default filled cell is U+2589 LEFT SEVEN EIGHTHS BLOCK rather than a square.
-It fills the full height of the cell and 7/8 of its width, so cells set flush
-against each other still show a hairline gap and the bar reads as ten distinct
-segments without any separator character. A true square such as `■` (U+25A0) is
-constrained by the cell *width*, which in a terminal is roughly half the cell
-height — that is why squares look small next to block elements.
+The default cells are U+25AE/U+25AF, the black and white vertical rectangles.
+The glyph carries its own side margins, so cells set flush against each other
+still separate into ten distinct blocks with a hairline gap, and the empty cell
+is drawn as an outlined box — a visible border rather than a shaded fill. A
+true square such as `■` (U+25A0) is constrained by the cell *width*, which in a
+terminal is roughly half the cell height — that is why squares look small next
+to rectangle and block glyphs. How thick the outline and how wide the gap
+render is ultimately the font's decision.
 
-Other pairings worth trying: `█`/`░` (U+2588 / U+2591) for a continuous bar with
-no gaps at all, `■`/`□` (U+25A0 / U+25A1) with `BAR_GAP=' '` for spaced squares,
-`●`/`○` (U+25CF / U+25CB) for dots, or plain `#`/`-` if your font is limited.
+Other pairings worth trying: `▉`/`░` (U+2589 / U+2591) for chunky blocks with
+shaded empties, `█`/`░` (U+2588 / U+2591) for a continuous bar with no gaps,
+`■`/`□` (U+25A0 / U+25A1) with `BAR_GAP=' '` for spaced squares, `●`/`○`
+(U+25CF / U+25CB) for dots, or plain `#`/`-` if your font is limited.
 
 The PowerShell version builds its glyphs from code points on purpose, so the
 file survives being saved in any encoding.
@@ -338,7 +341,7 @@ echo '{"workspace":{"current_dir":"/tmp"},"model":{"display_name":"Opus 5"},"con
 plans, and only after the session's first API response. Send a message.
 
 **Boxes or question marks instead of bars.** The terminal font has no glyph for
-`▉`/`░`. Use a font with wider Unicode coverage, or switch the bar characters
+`▮`/`▯`. Use a font with wider Unicode coverage, or switch the bar characters
 to `#`/`-`.
 
 **Colors show up as literal `[38;5;117m` text.** The terminal is not
