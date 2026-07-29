@@ -1,8 +1,8 @@
 {
   "name": "statusline",
   "displayName": "Claude Code Statusline",
-  "version": "1.0.0",
-  "description": "Cross-platform colored status line for Claude Code: directory, git branch, model, context usage and 5-hour rate limit.",
+  "version": "1.1.0",
+  "description": "Cross-platform colored status line for Claude Code: directory, git branch, model, context usage, 5-hour rate limit with reset countdown, and cross-session usage sync.",
   "author": {
     "name": "black-astro",
     "url": "https://github.com/black-astro"

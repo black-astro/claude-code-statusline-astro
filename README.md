@@ -3,7 +3,7 @@
 A cross-platform, colored status line for [Claude Code](https://claude.com/claude-code).
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▉▉▉▉░░░░░░ ] 42% | 5H [ ▉▉▉▉▉▉░░░░ ] 63%
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▉▉▉▉░░░░░░ ] 42% | 5H [ ▉▉▉▉▉▉░░░░ ] 63% 2h05m
 ```
 
 Two implementations that print byte-identical output, so your status line looks
@@ -108,8 +108,8 @@ since batch cannot parse JSON.
 ## Reading the status line
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▉▉▉▉░░░░░░ ] 42% | 5H [ ▉▉▉▉▉▉░░░░ ] 63%
-    └── project root              └── branch  └── model      └── context used  └── 5-hour limit used
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▉▉▉▉░░░░░░ ] 42% | 5H [ ▉▉▉▉▉▉░░░░ ] 63% 2h05m
+    └── project root              └── branch  └── model      └── context used  └── 5-hour limit used, resets in 2h05m
 ```
 
 ### `DIR` — project root
@@ -148,8 +148,14 @@ finish the current thread rather than start a new subtask.
 
 Percentage of your rolling five-hour usage allowance consumed. Unlike `CTX`,
 this is **account-wide** — every terminal you have open draws from the same
-pool. It only appears for Claude.ai subscription plans, and only after the
-session has received its first API response.
+pool. It only appears for Claude.ai subscription plans, and only after some
+session on the machine has received an API response.
+
+The dim `2h05m` after the percentage is a **countdown to the window reset** —
+when it hits zero, the allowance starts over. It is computed locally from the
+`resets_at` timestamp already in the payload, so it costs nothing, makes no
+network calls, and is always current even when the percentage itself is a
+cached snapshot.
 
 ### `7D` — seven-day usage limit (off by default)
 
@@ -214,10 +220,36 @@ So both symptoms are expected:
   quoting windows that had already closed — their numbers were not merely late,
   they were answers to a question about a different five-hour period.
 
-When the reported `resets_at` is in the past the number is definitely wrong, so
-the status line marks it: `~11%`, dimmed. Send any message in that session and it
-refreshes. Sessions A and B above show the limit of what can be detected: same
-open window, 1 point apart, and nothing in the payload says which is newer.
+### What the status line does about it
+
+The script cannot ask the API for the live value — it has no credentials and no
+endpoint for that, and polling would spend the very allowance it is measuring.
+But the drift between terminals is fixable without any of that, because **at
+least one session is always holding the newest snapshot: the one you are
+actively working in.**
+
+So sessions share what they see. On every render, each session writes the
+rate-limit snapshot it was handed to a small file under
+`~/.claude/statusline-cache/`, and displays the best snapshot *any* session has
+published: the newest window wins, and within the same window the highest
+reading wins (account usage only rises while a window is open). The moment you
+send a message in one terminal, every other terminal converges to that value on
+its next 5-second refresh. No API calls, no tokens — just a ~40-byte file.
+
+This is also why a freshly opened terminal shows a real `5H` value immediately
+instead of `--%`: it inherits the account state from its neighbors.
+
+Two markers remain for what sharing cannot fix:
+
+- `~11%` dimmed — even the freshest snapshot anyone holds is from a window that
+  already closed (every session has been idle past a reset). Send any message
+  and it recovers.
+- Sessions quoting the same open window can still sit a point apart for a
+  moment (A and B above); nothing in the payload says which is newer, and the
+  higher one wins by the ordering rule.
+
+The countdown never has either problem — it ticks locally regardless of how old
+the percentage is.
 
 `CTX` does not have this problem — it is computed from the session's own
 transcript, so it is accurate the moment it is drawn.
@@ -269,6 +301,10 @@ programming fonts do; some proportional-ish fonts leave a margin).
 codes: `97` project, `95` main branch, `96` other branches, `93` model, `90` dim.
 
 **No color at all.** Set `NO_COLOR=1` in the environment.
+
+**Cache location.** Cross-session snapshots live in
+`~/.claude/statusline-cache/` (one ~40-byte file per session, swept after 48
+hours of inactivity). Set `STATUSLINE_CACHE_DIR` to move it.
 
 ---
 
@@ -363,8 +399,12 @@ Claude Code 플러그인은 메인 상태라인을 직접 등록할 수 없기 �
 신호로 보시면 됩니다.
 
 **5H** — 5시간 롤링 사용 한도입니다. CTX와 달리 **계정 전체 기준**이라 열어둔 모든
-터미널이 같은 한도를 나눠 씁니다. Claude.ai 구독 플랜에서만, 그리고 세션이 첫 API
-응답을 받은 뒤에만 표시됩니다.
+터미널이 같은 한도를 나눠 씁니다. Claude.ai 구독 플랜에서만 표시됩니다.
+
+퍼센트 뒤의 흐린 `2h05m`는 **창이 리셋되기까지 남은 시간**입니다. 0이 되면 허용량이
+새로 시작됩니다. payload에 이미 들어 있는 `resets_at`으로 로컬에서 계산하는 값이라
+네트워크 호출도 토큰 소모도 없고, 퍼센트가 오래된 스냅샷일 때조차 항상 정확하게
+흘러갑니다.
 
 **7D** — 주간(7일) 사용 한도입니다. 줄이 길어져서 기본은 꺼져 있고, 스크립트 위쪽의
 `SHOW_SEVEN_DAY=1`(sh) 또는 `$ShowSevenDay = $true`(PowerShell) 한 줄만 고치면
@@ -405,10 +445,33 @@ Claude Code가 stdin으로 건네준 숫자를 그릴 뿐이고, 직접 API에 �
 - **터미널마다 다른 이유** — 위 표의 C와 D는 이미 닫힌 창의 값을 말하고 있었습니다.
   단순히 늦은 게 아니라, 아예 다른 5시간 구간에 대한 답이었습니다.
 
-`resets_at`이 현재 시각보다 과거이면 그 숫자는 확실히 틀린 값이므로, 상태라인이
-`~11%`처럼 물결표를 붙이고 흐리게 표시합니다. 그 세션에서 아무 메시지나 보내면
-갱신됩니다. 다만 위 표의 A와 B가 한계를 보여줍니다. 같은 창이 열려 있는데 1%p
-차이가 나고, payload 어디에도 어느 쪽이 더 최신인지 알려주는 정보가 없습니다.
+### 상태라인이 이 문제를 다루는 방법
+
+스크립트가 API에 직접 실시간 값을 물어볼 수는 없습니다. 자격 증명도 공개 엔드포인트도
+없고, 폴링은 측정하려는 허용량을 측정 때문에 소모하는 구조가 됩니다. 하지만 터미널
+간의 어긋남은 그것 없이도 고칠 수 있습니다. **적어도 하나의 세션은 항상 최신 스냅샷을
+들고 있기 때문입니다. 바로 지금 작업 중인 세션입니다.**
+
+그래서 세션끼리 본 것을 공유합니다. 매 렌더링마다 각 세션은 자기가 받은 rate-limit
+스냅샷을 `~/.claude/statusline-cache/`의 작은 파일에 기록하고, 표시할 때는 **모든
+세션이 발행한 것 중 가장 좋은 스냅샷**을 고릅니다. 더 새로운 창이 이기고, 같은
+창이면 더 높은 값이 이깁니다(창이 열려 있는 동안 계정 사용량은 줄지 않으므로). 한
+터미널에서 메시지를 보내는 순간, 나머지 터미널들은 다음 5초 새로고침에서 그 값으로
+수렴합니다. API 호출 0회, 토큰 0개, 40바이트짜리 파일이 전부입니다.
+
+새로 연 터미널이 `--%` 대신 곧바로 실제 5H 값을 보여주는 것도 이 덕분입니다. 옆
+세션들이 발행해 둔 계정 상태를 물려받기 때문입니다.
+
+공유로도 못 고치는 경우를 위한 표시 두 가지는 남아 있습니다.
+
+- `~11%` 흐림 — 모든 세션이 리셋 시각을 넘겨 놀고 있어서, 가장 최신 스냅샷조차 이미
+  닫힌 창의 값일 때입니다. 아무 메시지나 보내면 회복됩니다.
+- 같은 열린 창을 인용하는 세션들이 잠깐 1%p 어긋날 수 있습니다(위 표의 A와 B).
+  payload에 어느 쪽이 더 최신인지 알려주는 정보가 없어서, 정렬 규칙상 높은 쪽이
+  이깁니다.
+
+카운트다운은 어느 경우에도 영향받지 않습니다. 퍼센트가 얼마나 오래됐든 로컬 시계로
+정확히 흘러갑니다.
 
 CTX에는 이 문제가 없습니다. 세션 자기 기록에서 계산하는 값이라 그리는 순간 정확합니다.
 
