@@ -3,7 +3,7 @@
 A cross-platform, colored status line for [Claude Code](https://claude.com/claude-code).
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ■ ■ ■ ■ □ □ □ □ □ □ ] 42% | 5H [ ■ ■ ■ ■ ■ ■ □ □ □ □ ] 63%
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▉▉▉▉░░░░░░ ] 42% | 5H [ ▉▉▉▉▉▉░░░░ ] 63%
 ```
 
 Two implementations that print byte-identical output, so your status line looks
@@ -103,8 +103,8 @@ since batch cannot parse JSON.
 ## Reading the status line
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ■ ■ ■ ■ □ □ □ □ □ □ ] 42% | 5H [ ■ ■ ■ ■ ■ ■ □ □ □ □ ] 63%
-    └── project root              └── branch  └── model      └── context used   └── 5-hour limit used
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▉▉▉▉░░░░░░ ] 42% | 5H [ ▉▉▉▉▉▉░░░░ ] 63%
+    └── project root              └── branch  └── model      └── context used  └── 5-hour limit used
 ```
 
 ### `DIR` — project root
@@ -208,20 +208,34 @@ transcript, so it is accurate the moment it is drawn.
 
 Everything worth changing sits in a labeled block at the top of each script.
 
-**Bar characters.** Some combinations worth trying: `█`/`░` (U+2588 / U+2591),
-`▰`/`▱` (U+25B0 / U+25B1), `●`/`○` (U+25CF / U+25CB), or plain `#`/`-` if your
-font is limited.
+**Bar characters.**
 
 ```sh
-BAR_FULL='■'    BAR_EMPTY='□'    BAR_GAP=' '    BAR_PAD=' '     # statusline.sh
+BAR_FULL='▉'    BAR_EMPTY='░'    BAR_GAP=''    BAR_PAD=' '      # statusline.sh
 ```
 ```powershell
-$BarFull = [string][char]0x25A0                                 # statusline.ps1
-$BarEmpty = [string][char]0x25A1
+$BarFull = [string][char]0x2589                                 # statusline.ps1
+$BarEmpty = [string][char]0x2591
 ```
+
+The default filled cell is U+2589 LEFT SEVEN EIGHTHS BLOCK rather than a square.
+It fills the full height of the cell and 7/8 of its width, so cells set flush
+against each other still show a hairline gap and the bar reads as ten distinct
+segments without any separator character. A true square such as `■` (U+25A0) is
+constrained by the cell *width*, which in a terminal is roughly half the cell
+height — that is why squares look small next to block elements.
+
+Other pairings worth trying: `█`/`░` (U+2588 / U+2591) for a continuous bar with
+no gaps at all, `■`/`□` (U+25A0 / U+25A1) with `BAR_GAP=' '` for spaced squares,
+`●`/`○` (U+25CF / U+25CB) for dots, or plain `#`/`-` if your font is limited.
 
 The PowerShell version builds its glyphs from code points on purpose, so the
 file survives being saved in any encoding.
+
+**Actual glyph size** is your terminal's font size — no escape code can change
+it for part of a line. If the bar still reads small, raise the terminal font
+size, or pick a font that draws block elements to the full cell box (most
+programming fonts do; some proportional-ish fonts leave a margin).
 
 **Thresholds.** `WARN_AT` / `CRIT_AT` (`$WarnAt` / `$CritAt`), default 60 and 90.
 
@@ -268,7 +282,7 @@ echo '{"workspace":{"current_dir":"/tmp"},"model":{"display_name":"Opus 5"},"con
 plans, and only after the session's first API response. Send a message.
 
 **Boxes or question marks instead of bars.** The terminal font has no glyph for
-`■`/`□`. Use a font with wider Unicode coverage, or switch the bar characters
+`▉`/`░`. Use a font with wider Unicode coverage, or switch the bar characters
 to `#`/`-`.
 
 **Colors show up as literal `[38;5;117m` text.** The terminal is not
@@ -370,3 +384,12 @@ CTX에는 이 문제가 없습니다. 세션 자기 기록에서 계산하는 �
 간격(`BAR_GAP`), 막대 길이(`BAR_LEN`), 색이 바뀌는 기준(`WARN_AT`/`CRIT_AT`),
 프로젝트 이름 최대 길이(`DIR_MAX`), 주간 게이지 표시 여부가 전부 거기 모여 있습니다.
 `NO_COLOR=1` 환경변수를 주면 색 없이 출력됩니다.
+
+기본 채움 문자는 정사각형이 아니라 U+2589(왼쪽 7/8 블록)입니다. 셀 높이를 꽉 채우면서
+너비는 7/8만 차지하기 때문에, 칸을 서로 붙여 놓아도 남는 1/8이 실선 같은 얇은 틈으로
+보입니다. 구분 문자를 넣지 않고도 열 칸이 또렷하게 나뉘어 보이는 이유입니다. 반면
+`■`(U+25A0) 같은 진짜 정사각형은 셀 **너비**에 맞춰 그려지는데 터미널 셀은 높이가
+너비의 두 배쯤이라, 블록 문자 옆에 두면 작아 보입니다.
+
+글리프의 실제 크기는 터미널 폰트 크기입니다. 한 줄의 일부만 크게 만드는 이스케이프
+코드는 존재하지 않으므로, 더 크게 보고 싶으면 터미널 폰트 크기를 올리시면 됩니다.

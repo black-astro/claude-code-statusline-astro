@@ -11,9 +11,13 @@ exec 2>/dev/null
 
 # ---- appearance ------------------------------------------------------------
 BAR_LEN=10
-BAR_FULL='■'    # U+25A0  filled cell
-BAR_EMPTY='□'   # U+25A1  empty cell
-BAR_GAP=' '     # spacing between cells
+# U+2589 fills the left 7/8 of its cell, so cells sit flush against each other
+# and the leftover 1/8 reads as a hairline gap — full cell height, no padding
+# needed. A true square like U+25A0 is limited by the cell width instead, which
+# is why it looks small.
+BAR_FULL='▉'    # U+2589  filled cell
+BAR_EMPTY='░'   # U+2591  empty cell
+BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=' '     # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
