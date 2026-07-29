@@ -297,8 +297,10 @@ programming fonts do; some proportional-ish fonts leave a margin).
 **Project name length.** `DIR_MAX` / `$DirMax`, default 32.
 
 **Colors.** Plain ANSI SGR codes. The meters use 256-color values —
-`38;5;40` green, `38;5;214` amber, `38;5;203` red. The meter brackets take the
-same color as the current load tier. On a terminal without
+`38;5;46` neon green, `38;5;214` amber, `38;5;203` red. The entire meter —
+brackets, filled cells and the outlines of empty cells — takes the color of the
+current load tier, so each gauge reads as one solid colored frame. On a
+terminal without
 256-color support, swap those for `96`, `93` and `91`. The rest are basic
 codes: `97` project, `95` main branch, `96` other branches, `93` model, `90` dim.
 
@@ -343,7 +345,7 @@ plans, and only after the session's first API response. Send a message.
 `◼`/`◻`. Use a font with wider Unicode coverage, or switch the bar characters
 to `#`/`-`.
 
-**Colors show up as literal `[38;5;40m` text.** The terminal is not
+**Colors show up as literal `[38;5;46m` text.** The terminal is not
 interpreting ANSI codes. Set `NO_COLOR=1` as a fallback.
 
 **Meter colors look wrong but the rest is fine.** The terminal is 16-color only.
@@ -412,8 +414,8 @@ Claude Code 플러그인은 메인 상태라인을 직접 등록할 수 없기 �
 `SHOW_SEVEN_DAY=1`(sh) 또는 `$ShowSevenDay = $true`(PowerShell) 한 줄만 고치면
 켜집니다.
 
-**색상** — 60% 미만은 초록, 60% 이상은 앰버, 90% 이상은 빨강이며, 게이지의 대괄호도
-현재 구간과 같은 색을 따라갑니다. 값이 아직
+**색상** — 60% 미만은 형광 초록, 60% 이상은 앰버, 90% 이상은 빨강입니다. 대괄호와
+빈 칸의 테두리까지 게이지 전체가 현재 구간 색 하나로 통일됩니다. 값이 아직
 없으면 `--%`로 표시하고, 오래된 값이면 `~11%`처럼 물결표를 붙이고 흐리게 처리합니다.
 
 ## 사용량 게이지는 실시간인가?

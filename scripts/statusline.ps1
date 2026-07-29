@@ -51,7 +51,7 @@ if ([string]::IsNullOrEmpty($env:NO_COLOR)) {
     $CModel = "$($Esc)[93m"           # yellow — model name
     # 256-color meter palette. For 16-color-only terminals use
     # 96 / 93 / 91 in place of these three.
-    $COk = "$($Esc)[38;5;40m"         # green      — under WarnAt
+    $COk = "$($Esc)[38;5;46m"         # neon green — under WarnAt
     $CWarn = "$($Esc)[38;5;214m"      # amber      — WarnAt and up
     $CCrit = "$($Esc)[38;5;203m"      # red        — CritAt and up
 } else {
@@ -100,8 +100,9 @@ function Format-Remaining {
     return '<1m'
 }
 
-# Renders "[ ▉▉▉▉░░░░░░ ] 42% 4h10m". Filled cells carry the load color, empty
-# cells stay dim, and the bar width never changes so the line does not jitter.
+# Renders "[◼◼◼◼◻◻◻◻◻◻] 42% 4h10m". The whole meter — brackets, filled cells
+# and the outlines of empty cells — carries the load color, and the bar width
+# never changes so the line does not jitter.
 # The countdown is the time until the window resets, computed locally from
 # resets_at — it costs nothing and is the one part that is always current.
 #
@@ -146,7 +147,7 @@ function Get-Meter {
     $cells = @()
     for ($i = 0; $i -lt $BarLength; $i++) {
         if ($i -lt $filled) { $cells += "$($c)$($BarFull)" }
-        else { $cells += "$($Dim)$($BarEmpty)" }
+        else { $cells += "$($c)$($BarEmpty)" }
     }
     $bar = $cells -join $BarGap
 

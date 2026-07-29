@@ -50,7 +50,7 @@ else
     C_MODEL="${ESC}[93m"            # yellow — model name
     # 256-color meter palette. For 16-color-only terminals use
     # 96 / 93 / 91 in place of these three.
-    C_OK="${ESC}[38;5;40m"          # green       — under WARN_AT
+    C_OK="${ESC}[38;5;46m"          # neon green  — under WARN_AT
     C_WARN="${ESC}[38;5;214m"       # amber       — WARN_AT and up
     C_CRIT="${ESC}[38;5;203m"       # red         — CRIT_AT and up
 fi
@@ -214,8 +214,9 @@ for f in "$CACHE_DIR"/rl-*.txt; do
 done
 
 # ---- meters ----------------------------------------------------------------
-# Renders "[ ▉▉▉▉░░░░░░ ] 42% 4h10m". Filled cells carry the load color, empty
-# cells stay dim, and the bar width never changes so the line does not jitter.
+# Renders "[◼◼◼◼◻◻◻◻◻◻] 42% 4h10m". The whole meter — brackets, filled cells
+# and the outlines of empty cells — carries the load color, and the bar width
+# never changes so the line does not jitter.
 # The countdown is the time until the window resets, computed locally from
 # resets_at — it costs nothing and is the one part that is always current.
 #
@@ -296,7 +297,7 @@ meter() {
         if [ "$_i" -lt "$_filled" ]; then
             _bar="${_bar}${_c}${BAR_FULL}"
         else
-            _bar="${_bar}${DIM}${BAR_EMPTY}"
+            _bar="${_bar}${_c}${BAR_EMPTY}"
         fi
         _i=$((_i + 1))
     done
