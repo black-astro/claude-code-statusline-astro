@@ -1,0 +1,22 @@
+{
+  "name": "statusline",
+  "displayName": "Claude Code Statusline",
+  "version": "1.0.0",
+  "description": "Cross-platform colored status line for Claude Code: directory, git branch, model, context usage and 5-hour rate limit.",
+  "author": {
+    "name": "black-astro",
+    "url": "https://github.com/black-astro"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/black-astro/claude-code-statusline-astro",
+  "repository": "https://github.com/black-astro/claude-code-statusline-astro",
+  "keywords": [
+    "statusline",
+    "status-line",
+    "windows",
+    "powershell",
+    "macos",
+    "linux",
+    "cross-platform"
+  ]
+}

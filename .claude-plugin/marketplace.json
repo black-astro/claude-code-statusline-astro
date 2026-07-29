@@ -1,0 +1,23 @@
+{
+  "name": "black-astro",
+  "owner": {
+    "name": "black-astro",
+    "url": "https://github.com/black-astro"
+  },
+  "description": "Claude Code plugins by black-astro.",
+  "plugins": [
+    {
+      "name": "statusline",
+      "source": "./",
+      "description": "Cross-platform colored status line for Claude Code: directory, git branch, model, context usage and 5-hour rate limit.",
+      "version": "1.0.0",
+      "author": {
+        "name": "black-astro"
+      },
+      "keywords": [
+        "statusline",
+        "cross-platform"
+      ]
+    }
+  ]
+}
