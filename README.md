@@ -87,6 +87,11 @@ macOS / Linux:
 
 Restart Claude Code or open a new session to see it.
 
+That restart is only needed to register the `statusLine` setting. Once it is
+registered, Claude Code re-reads the script file on every invocation, so later
+edits to the bar characters, colors or thresholds take effect within seconds in
+every open session — no restart, no reinstall.
+
 Every installer backs up your existing `settings.json` to `settings.json.bak`
 and only adds the `statusLine` key — nothing else in the file is touched.
 
@@ -184,20 +189,35 @@ way to query the API itself. Claude Code refreshes `rate_limits` when the
 session receives an API response — so between your messages, the number is
 frozen at whatever it was when Claude last replied in *that* session.
 
-That explains the two things people notice:
+Logging the payload from four concurrent sessions on one account for two minutes
+makes this concrete:
 
-- **`/usage` disagrees with the status line.** `/usage` asks the server for the
-  current value. The status line shows the value attached to this session's last
-  API response, which may be many minutes old.
-- **Two terminals show different `5H` values.** The limit is account-wide, but
-  each session caches its own last-seen snapshot, and they drift apart. Capturing
-  131 real payloads across concurrent sessions on one account produced `5H`
-  readings of 11%, 5%, 3%, 9% and 6% — all valid, all from different moments.
+| session | invocations | `5H` reading | window ends at |
+| --- | --- | --- | --- |
+| A | 24 | 9%, never moved | 18:50 — still open |
+| B (actively working) | 30 | 9% → 10% | 18:50 — still open |
+| C | 24 | 11%, never moved | 13:50 — closed 50 min earlier |
+| D | 25 | 9%, never moved | 19:00 **the previous day** |
 
-A session that has been idle long enough can even be holding a snapshot from a
-five-hour window that has already expired. When the reported `resets_at` is in
-the past, the number is definitely wrong, so the status line marks it: `~11%`,
-dimmed. Send any message and it refreshes.
+Two things fall out of that. The idle sessions re-ran the script two dozen times
+each and their number never moved once, while only the session actually calling
+the API changed — re-running is not re-measuring. And the four sessions reported
+*three different window boundaries*, which is only possible if each is holding
+its own cached snapshot rather than reading shared live state.
+
+So both symptoms are expected:
+
+- **`/usage` and the web usage page disagree with the status line.** They ask the
+  server for the value right now. The status line shows the value attached to
+  this session's last API response.
+- **Two terminals show different `5H` values.** Sessions C and D above were
+  quoting windows that had already closed — their numbers were not merely late,
+  they were answers to a question about a different five-hour period.
+
+When the reported `resets_at` is in the past the number is definitely wrong, so
+the status line marks it: `~11%`, dimmed. Send any message in that session and it
+refreshes. Sessions A and B above show the limit of what can be detected: same
+open window, 1 point apart, and nothing in the payload says which is newer.
 
 `CTX` does not have this problem — it is computed from the session's own
 transcript, so it is accurate the moment it is drawn.
@@ -363,18 +383,32 @@ Claude Code가 stdin으로 건네준 숫자를 그릴 뿐이고, 직접 API에 �
 없습니다. `rate_limits` 값은 **해당 세션이 API 응답을 받을 때** 갱신되므로, 메시지를
 주고받지 않는 동안에는 마지막 응답 시점의 값에 멈춰 있습니다.
 
-여기서 말씀하신 두 가지 현상이 그대로 설명됩니다.
+같은 계정에서 동시에 돌아가는 세션 네 개의 payload를 2분간 기록해 보면 분명해집니다.
 
-- **`/usage` 값과 다른 이유** — `/usage`는 서버에 지금 값을 물어봅니다. 상태라인은 이
-  세션이 마지막으로 받은 응답에 붙어 있던 값을 보여줍니다. 몇 분 전 값일 수 있습니다.
-- **터미널마다 다른 이유** — 한도 자체는 계정 공용이지만 세션마다 자기가 마지막으로
-  본 스냅샷을 들고 있어서 서로 어긋납니다. 실제로 같은 계정의 동시 실행 세션에서
-  payload 131건을 떠 보니 5H 값이 11%, 5%, 3%, 9%, 6%로 제각각이었습니다. 전부 유효한
-  값이고, 단지 측정 시점이 다를 뿐입니다.
+| 세션 | 실행 횟수 | `5H` 값 | 창 종료 시각 |
+| --- | --- | --- | --- |
+| A | 24회 | 9%, 한 번도 안 바뀜 | 18:50 — 아직 열려 있음 |
+| B (작업 중) | 30회 | 9% → 10% | 18:50 — 아직 열려 있음 |
+| C | 24회 | 11%, 한 번도 안 바뀜 | 13:50 — 50분 전에 닫힘 |
+| D | 25회 | 9%, 한 번도 안 바뀜 | **전날** 19:00 |
 
-오래 놀린 세션은 이미 지나간 5시간 창의 스냅샷을 들고 있을 수도 있습니다. 응답에 담긴
+두 가지가 드러납니다. 놀고 있던 세션들은 스크립트를 스무 번 넘게 다시 실행했는데도
+숫자가 한 번도 움직이지 않았고, 실제로 API를 호출하던 세션만 값이 바뀌었습니다.
+**다시 그리는 것은 다시 재는 것이 아닙니다.** 그리고 네 세션이 보고한 창 종료 시각이
+**서로 다른 세 가지**였습니다. 각자 자기 스냅샷을 들고 있지 않다면 나올 수 없는
+결과입니다.
+
+그래서 두 현상 모두 정상입니다.
+
+- **`/usage`나 웹 사용량 페이지와 다른 이유** — 그쪽은 서버에 지금 값을 물어봅니다.
+  상태라인은 이 세션이 마지막으로 받은 응답에 붙어 있던 값을 보여줍니다.
+- **터미널마다 다른 이유** — 위 표의 C와 D는 이미 닫힌 창의 값을 말하고 있었습니다.
+  단순히 늦은 게 아니라, 아예 다른 5시간 구간에 대한 답이었습니다.
+
 `resets_at`이 현재 시각보다 과거이면 그 숫자는 확실히 틀린 값이므로, 상태라인이
-`~11%`처럼 흐리게 표시해서 알려줍니다. 아무 메시지나 보내면 갱신됩니다.
+`~11%`처럼 물결표를 붙이고 흐리게 표시합니다. 그 세션에서 아무 메시지나 보내면
+갱신됩니다. 다만 위 표의 A와 B가 한계를 보여줍니다. 같은 창이 열려 있는데 1%p
+차이가 나고, payload 어디에도 어느 쪽이 더 최신인지 알려주는 정보가 없습니다.
 
 CTX에는 이 문제가 없습니다. 세션 자기 기록에서 계산하는 값이라 그리는 순간 정확합니다.
 
