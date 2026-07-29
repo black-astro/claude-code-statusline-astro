@@ -15,12 +15,12 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # ---- appearance ------------------------------------------------------------
 $BarLength = 10
-# U+25AE/25AF draw a tall rectangle with the glyph's own side margins, so
-# flush cells still show a hairline gap, and the empty cell renders as an
-# outlined box rather than a shaded fill. Glyphs are built from code points so
-# the file survives being saved in any encoding.
-$BarFull = [string][char]0x25AE   # ▮ filled cell
-$BarEmpty = [string][char]0x25AF  # ▯ empty cell (outlined)
+# U+25FC/25FB draw a near-square block with the glyph's own margins, so flush
+# cells still show a hairline gap, and the empty cell renders as an outlined
+# box rather than a shaded fill. Glyphs are built from code points so the file
+# survives being saved in any encoding.
+$BarFull = [string][char]0x25FC   # ◼ filled cell
+$BarEmpty = [string][char]0x25FB  # ◻ empty cell (outlined)
 $BarGap = ''                      # cells are flush; the glyph separates itself
 $BarPad = ' '                     # spacing just inside the brackets
 $DirMax = 32                      # project name is left-truncated past this
@@ -51,7 +51,7 @@ if ([string]::IsNullOrEmpty($env:NO_COLOR)) {
     $CModel = "$($Esc)[93m"           # yellow — model name
     # 256-color meter palette. For 16-color-only terminals use
     # 96 / 93 / 91 in place of these three.
-    $COk = "$($Esc)[38;5;117m"        # light blue — under WarnAt
+    $COk = "$($Esc)[38;5;114m"        # green      — under WarnAt
     $CWarn = "$($Esc)[38;5;214m"      # amber      — WarnAt and up
     $CCrit = "$($Esc)[38;5;203m"      # red        — CritAt and up
 } else {
@@ -150,7 +150,7 @@ function Get-Meter {
     }
     $bar = $cells -join $BarGap
 
-    $out = "$($Dim)[$($BarPad)$($bar)$($Dim)$($BarPad)] $($cPct)$($pct)$($Reset)"
+    $out = "$($c)[$($BarPad)$($bar)$($c)$($BarPad)] $($cPct)$($pct)$($Reset)"
     if ($countdown -ne '') { $out += " $($Dim)$($countdown)$($Reset)" }
     return $out
 }

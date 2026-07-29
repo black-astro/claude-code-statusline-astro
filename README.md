@@ -3,7 +3,7 @@
 A cross-platform, colored status line for [Claude Code](https://claude.com/claude-code).
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▮▮▮▮▯▯▯▯▯▯ ] 42% | 5H [ ▮▮▮▮▮▮▯▯▯▯ ] 63% 2h05m
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ◼◼◼◼◻◻◻◻◻◻ ] 42% | 5H [ ◼◼◼◼◼◼◻◻◻◻ ] 63% 2h05m
 ```
 
 Two implementations that print byte-identical output, so your status line looks
@@ -108,7 +108,7 @@ since batch cannot parse JSON.
 ## Reading the status line
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ▮▮▮▮▯▯▯▯▯▯ ] 42% | 5H [ ▮▮▮▮▮▮▯▯▯▯ ] 63% 2h05m
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ◼◼◼◼◻◻◻◻◻◻ ] 42% | 5H [ ◼◼◼◼◼◼◻◻◻◻ ] 63% 2h05m
     └── project root              └── branch  └── model      └── context used  └── 5-hour limit used, resets in 2h05m
 ```
 
@@ -173,7 +173,7 @@ $ShowSevenDay = $true   # statusline.ps1
 
 | State | Meaning |
 | --- | --- |
-| light blue | under 60% |
+| green | under 60% |
 | amber | 60% and above |
 | red | 90% and above |
 | `--%` with a dim empty bar | value not reported yet |
@@ -263,26 +263,24 @@ Everything worth changing sits in a labeled block at the top of each script.
 **Bar characters.**
 
 ```sh
-BAR_FULL='▮'    BAR_EMPTY='▯'    BAR_GAP=''    BAR_PAD=' '      # statusline.sh
+BAR_FULL='◼'    BAR_EMPTY='◻'    BAR_GAP=''    BAR_PAD=' '      # statusline.sh
 ```
 ```powershell
-$BarFull = [string][char]0x25AE                                 # statusline.ps1
-$BarEmpty = [string][char]0x25AF
+$BarFull = [string][char]0x25FC                                 # statusline.ps1
+$BarEmpty = [string][char]0x25FB
 ```
 
-The default cells are U+25AE/U+25AF, the black and white vertical rectangles.
-The glyph carries its own side margins, so cells set flush against each other
-still separate into ten distinct blocks with a hairline gap, and the empty cell
-is drawn as an outlined box — a visible border rather than a shaded fill. A
-true square such as `■` (U+25A0) is constrained by the cell *width*, which in a
-terminal is roughly half the cell height — that is why squares look small next
-to rectangle and block glyphs. How thick the outline and how wide the gap
-render is ultimately the font's decision.
+The default cells are U+25FC/U+25FB, the black and white medium squares. The
+glyph is close to an actual square, carries its own margins — so cells set
+flush against each other still separate into ten distinct blocks with a
+hairline gap — and the empty cell is drawn as an outlined box, a visible
+border rather than a shaded fill. How square it really looks, how thick the
+outline is and how wide the gap renders is ultimately the font's decision.
 
-Other pairings worth trying: `▉`/`░` (U+2589 / U+2591) for chunky blocks with
-shaded empties, `█`/`░` (U+2588 / U+2591) for a continuous bar with no gaps,
-`■`/`□` (U+25A0 / U+25A1) with `BAR_GAP=' '` for spaced squares, `●`/`○`
-(U+25CF / U+25CB) for dots, or plain `#`/`-` if your font is limited.
+Other pairings worth trying: `▮`/`▯` (U+25AE / U+25AF) for taller rectangles,
+`▉`/`░` (U+2589 / U+2591) for chunky blocks with shaded empties, `█`/`░`
+(U+2588 / U+2591) for a continuous bar with no gaps, `●`/`○` (U+25CF / U+25CB)
+for dots, or plain `#`/`-` if your font is limited.
 
 The PowerShell version builds its glyphs from code points on purpose, so the
 file survives being saved in any encoding.
@@ -299,7 +297,8 @@ programming fonts do; some proportional-ish fonts leave a margin).
 **Project name length.** `DIR_MAX` / `$DirMax`, default 32.
 
 **Colors.** Plain ANSI SGR codes. The meters use 256-color values —
-`38;5;117` light blue, `38;5;214` amber, `38;5;203` red. On a terminal without
+`38;5;114` green, `38;5;214` amber, `38;5;203` red. The meter brackets take the
+same color as the current load tier. On a terminal without
 256-color support, swap those for `96`, `93` and `91`. The rest are basic
 codes: `97` project, `95` main branch, `96` other branches, `93` model, `90` dim.
 
@@ -341,10 +340,10 @@ echo '{"workspace":{"current_dir":"/tmp"},"model":{"display_name":"Opus 5"},"con
 plans, and only after the session's first API response. Send a message.
 
 **Boxes or question marks instead of bars.** The terminal font has no glyph for
-`▮`/`▯`. Use a font with wider Unicode coverage, or switch the bar characters
+`◼`/`◻`. Use a font with wider Unicode coverage, or switch the bar characters
 to `#`/`-`.
 
-**Colors show up as literal `[38;5;117m` text.** The terminal is not
+**Colors show up as literal `[38;5;114m` text.** The terminal is not
 interpreting ANSI codes. Set `NO_COLOR=1` as a fallback.
 
 **Meter colors look wrong but the rest is fine.** The terminal is 16-color only.
@@ -413,7 +412,8 @@ Claude Code 플러그인은 메인 상태라인을 직접 등록할 수 없기 �
 `SHOW_SEVEN_DAY=1`(sh) 또는 `$ShowSevenDay = $true`(PowerShell) 한 줄만 고치면
 켜집니다.
 
-**색상** — 60% 미만은 연파랑, 60% 이상은 앰버, 90% 이상은 빨강입니다. 값이 아직
+**색상** — 60% 미만은 초록, 60% 이상은 앰버, 90% 이상은 빨강이며, 게이지의 대괄호도
+현재 구간과 같은 색을 따라갑니다. 값이 아직
 없으면 `--%`로 표시하고, 오래된 값이면 `~11%`처럼 물결표를 붙이고 흐리게 처리합니다.
 
 ## 사용량 게이지는 실시간인가?

@@ -11,11 +11,11 @@ exec 2>/dev/null
 
 # ---- appearance ------------------------------------------------------------
 BAR_LEN=10
-# U+25AE/25AF draw a tall rectangle with the glyph's own side margins, so
-# flush cells still show a hairline gap, and the empty cell renders as an
-# outlined box rather than a shaded fill.
-BAR_FULL='▮'    # U+25AE  filled cell
-BAR_EMPTY='▯'   # U+25AF  empty cell (outlined)
+# U+25FC/25FB draw a near-square block with the glyph's own margins, so flush
+# cells still show a hairline gap, and the empty cell renders as an outlined
+# box rather than a shaded fill.
+BAR_FULL='◼'    # U+25FC  filled cell
+BAR_EMPTY='◻'   # U+25FB  empty cell (outlined)
 BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=' '     # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
@@ -50,7 +50,7 @@ else
     C_MODEL="${ESC}[93m"            # yellow — model name
     # 256-color meter palette. For 16-color-only terminals use
     # 96 / 93 / 91 in place of these three.
-    C_OK="${ESC}[38;5;117m"         # light blue  — under WARN_AT
+    C_OK="${ESC}[38;5;114m"         # green       — under WARN_AT
     C_WARN="${ESC}[38;5;214m"       # amber       — WARN_AT and up
     C_CRIT="${ESC}[38;5;203m"       # red         — CRIT_AT and up
 fi
@@ -301,7 +301,7 @@ meter() {
         _i=$((_i + 1))
     done
 
-    _out="${DIM}[${BAR_PAD}${_bar}${DIM}${BAR_PAD}] ${_cpct}${_pct}${RESET}"
+    _out="${_c}[${BAR_PAD}${_bar}${_c}${BAR_PAD}] ${_cpct}${_pct}${RESET}"
     [ -n "$_cd" ] && _out="${_out} ${DIM}${_cd}${RESET}"
     printf '%s' "$_out"
 }
