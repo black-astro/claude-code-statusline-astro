@@ -3,7 +3,7 @@
 A cross-platform, colored status line for [Claude Code](https://claude.com/claude-code).
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ◼◼◼◼◻◻◻◻◻◻ ] 42% | 5H [ ◼◼◼◼◼◼◻◻◻◻ ] 63% 2h05m
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [◼◼◼◼◻◻◻◻◻◻] 42% | 5H [◼◼◼◼◼◼◻◻◻◻] 63% 2h05m
 ```
 
 Two implementations that print byte-identical output, so your status line looks
@@ -108,7 +108,7 @@ since batch cannot parse JSON.
 ## Reading the status line
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [ ◼◼◼◼◻◻◻◻◻◻ ] 42% | 5H [ ◼◼◼◼◼◼◻◻◻◻ ] 63% 2h05m
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [◼◼◼◼◻◻◻◻◻◻] 42% | 5H [◼◼◼◼◼◼◻◻◻◻] 63% 2h05m
     └── project root              └── branch  └── model      └── context used  └── 5-hour limit used, resets in 2h05m
 ```
 
@@ -263,7 +263,7 @@ Everything worth changing sits in a labeled block at the top of each script.
 **Bar characters.**
 
 ```sh
-BAR_FULL='◼'    BAR_EMPTY='◻'    BAR_GAP=''    BAR_PAD=' '      # statusline.sh
+BAR_FULL='◼'    BAR_EMPTY='◻'    BAR_GAP=''    BAR_PAD=''      # statusline.sh
 ```
 ```powershell
 $BarFull = [string][char]0x25FC                                 # statusline.ps1
@@ -297,7 +297,7 @@ programming fonts do; some proportional-ish fonts leave a margin).
 **Project name length.** `DIR_MAX` / `$DirMax`, default 32.
 
 **Colors.** Plain ANSI SGR codes. The meters use 256-color values —
-`38;5;114` green, `38;5;214` amber, `38;5;203` red. The meter brackets take the
+`38;5;40` green, `38;5;214` amber, `38;5;203` red. The meter brackets take the
 same color as the current load tier. On a terminal without
 256-color support, swap those for `96`, `93` and `91`. The rest are basic
 codes: `97` project, `95` main branch, `96` other branches, `93` model, `90` dim.
@@ -343,7 +343,7 @@ plans, and only after the session's first API response. Send a message.
 `◼`/`◻`. Use a font with wider Unicode coverage, or switch the bar characters
 to `#`/`-`.
 
-**Colors show up as literal `[38;5;114m` text.** The terminal is not
+**Colors show up as literal `[38;5;40m` text.** The terminal is not
 interpreting ANSI codes. Set `NO_COLOR=1` as a fallback.
 
 **Meter colors look wrong but the rest is fine.** The terminal is 16-color only.

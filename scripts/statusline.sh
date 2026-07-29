@@ -17,7 +17,7 @@ BAR_LEN=10
 BAR_FULL='◼'    # U+25FC  filled cell
 BAR_EMPTY='◻'   # U+25FB  empty cell (outlined)
 BAR_GAP=''      # cells are flush; the glyph provides its own separation
-BAR_PAD=' '     # spacing just inside the brackets
+BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
 SHOW_SEVEN_DAY=0  # set to 1 to also show the 7-day (weekly) meter
@@ -50,7 +50,7 @@ else
     C_MODEL="${ESC}[93m"            # yellow — model name
     # 256-color meter palette. For 16-color-only terminals use
     # 96 / 93 / 91 in place of these three.
-    C_OK="${ESC}[38;5;114m"         # green       — under WARN_AT
+    C_OK="${ESC}[38;5;40m"          # green       — under WARN_AT
     C_WARN="${ESC}[38;5;214m"       # amber       — WARN_AT and up
     C_CRIT="${ESC}[38;5;203m"       # red         — CRIT_AT and up
 fi

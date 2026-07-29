@@ -22,7 +22,7 @@ $BarLength = 10
 $BarFull = [string][char]0x25FC   # ◼ filled cell
 $BarEmpty = [string][char]0x25FB  # ◻ empty cell (outlined)
 $BarGap = ''                      # cells are flush; the glyph separates itself
-$BarPad = ' '                     # spacing just inside the brackets
+$BarPad = ''                      # spacing just inside the brackets
 $DirMax = 32                      # project name is left-truncated past this
 $Ellipsis = [string][char]0x2026
 
@@ -51,7 +51,7 @@ if ([string]::IsNullOrEmpty($env:NO_COLOR)) {
     $CModel = "$($Esc)[93m"           # yellow — model name
     # 256-color meter palette. For 16-color-only terminals use
     # 96 / 93 / 91 in place of these three.
-    $COk = "$($Esc)[38;5;114m"        # green      — under WarnAt
+    $COk = "$($Esc)[38;5;40m"         # green      — under WarnAt
     $CWarn = "$($Esc)[38;5;214m"      # amber      — WarnAt and up
     $CCrit = "$($Esc)[38;5;203m"      # red        — CritAt and up
 } else {
