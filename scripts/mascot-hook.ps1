@@ -41,11 +41,38 @@ try {
     }
 } catch { exit 0 }
 
-# The timestamp doubles as the roll seed, so a finished turn keeps the same
-# face across every redraw instead of re-rolling on each refresh.
+# The per-machine key the daily draw is derived from. Created once, with a
+# CSPRNG, and never touched again: the face for a given day is
+# HMAC-SHA256(key, date), so a stable key is what makes the draw stable. The
+# move fails harmlessly if another process won the race, leaving that key in
+# place rather than replacing it.
+$keyFile = Join-Path $dir '.gacha-key'
+if (-not (Test-Path -LiteralPath $keyFile)) {
+    $rng = $null
+    try {
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        $raw = New-Object byte[] 32
+        $rng.GetBytes($raw)
+        $hex = -join ($raw | ForEach-Object { $_.ToString('x2') })
+
+        $tmp = "$keyFile.tmp.$PID"
+        [System.IO.File]::WriteAllText($tmp, $hex)
+        try {
+            [System.IO.File]::Move($tmp, $keyFile)
+        } catch {
+            Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        }
+    } catch {
+    } finally {
+        if ($null -ne $rng) { $rng.Dispose() }
+    }
+}
+
 $now = 0
 try { $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } catch { }
 
+# Only the state matters to the status line; the timestamp is kept for humans
+# reading the cache directory.
 try {
     [System.IO.File]::WriteAllText((Join-Path $dir "mascot-$($key).txt"), "$State $now")
 } catch { }

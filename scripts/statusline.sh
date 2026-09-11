@@ -328,22 +328,105 @@ meter() {
 }
 
 # ---- mascot ----------------------------------------------------------------
-# Pools are pipe-separated because POSIX sh has no arrays. No face contains a
-# pipe, so cut -d'|' indexes them safely.
-KAO_WORK='ᕕ( ᐛ )ᕗ|ᕦ( ᐛ )ᕤ'
-KAO_ERROR='（；へ：）'
-KAO_COMMON='（・ω・）|（´･ω･）|（・_・）|（ ˘ω˘ ）|（=・ω・=）|（・∀・）'
-KAO_UNCOMMON='（๑˃ᴗ˂）|（｡･ω･｡）|（^▽^）|（・ㅂ・）|（◕‿◕）'
-KAO_RARE='（๑˃ᴗ˂）✧|ヽ（•‿•）ノ|（★ω★）|（◕‿◕）✧|\(^o^)/'
-KAO_UNIQUE='（☆▽☆）|ヽ（°〇°）ﾉ|（ﾉ◕ヮ◕）ﾉ|（♡‿♡）'
-KAO_LEGEND='✧（◕ᴗ◕）✧|ヽ（♡‿♡）ノ|（ﾉ≧∇≦）ﾉ|♪（๑ᴖ◡ᴖ๑）♪'
+# The face is the day's draw. It is never stored and it is never rolled here:
+# it is derived from HMAC-SHA256(machine key, today's date). The same day
+# therefore always yields the same face however often this script runs, and no
+# amount of editing or deleting files changes it - forcing a legend would mean
+# inverting HMAC-SHA256. The key is created once by mascot-hook.sh.
+#
+# Each face carries two frames of one expression, always the same width so the
+# line never jitters. While a turn runs the frames alternate on every refresh;
+# once the turn is done the face settles on its first frame.
+#
+# Faces are separated by '|' and their two frames by '#'; no face contains
+# either character, so cut can index them.
+KAO_ERROR='（；へ：）#（；ω；）'
+KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´－ω－）|（・_・）#（－_－）|（ ˘ω˘ ）#（ ˘ᴗ˘ ）|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）'
+KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡－ω－｡）|（^▽^）#（^ω^）|（・ㅂ・）#（－ㅂ－）|（◕‿◕）#（◠‿◠）'
+KAO_RARE='（๑˃ᴗ˂）✧#（๑˃ᴗ˂）✦|ヽ（•‿•）ノ#ヾ（•‿•）ﾉ|（★ω★）#（☆ω☆）|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/'
+KAO_UNIQUE='（☆▽☆）#（★▽★）|ヽ（°〇°）ﾉ#ヾ（°Д°）ﾉ|（ﾉ◕ヮ◕）ﾉ#（ヽ◕ヮ◕）ヽ|（♡‿♡）#（♥‿♥）'
+KAO_LEGEND='✧（◕ᴗ◕）✧#✦（◕ᴗ◕）✦|ヽ（♡‿♡）ノ#ヾ（♥‿♥）ﾉ|（ﾉ≧∇≦）ﾉ#（ﾉ≧▽≦）ﾉ|♪（๑ᴖ◡ᴖ๑）♪#♫（๑ᴖ◡ᴖ๑）♫'
 
-kao_count() { printf '%s' "$1" | awk -F'|' '{print NF}'; }
-kao_at() { printf '%s' "$1" | cut -d'|' -f"$2"; }
+MASCOT_TIERS='common uncommon rare unique legend'
 
-# Renders the mascot for the state the hook recorded, or nothing at all when
-# there is no state file - which is exactly what happens when the hook is not
-# installed, so the line then looks as it always did.
+kao_count() { printf %s "$1" | awk -F'|' '{print NF}'; }
+kao_face() { printf %s "$1" | cut -d'|' -f"$2"; }
+kao_frame() { printf %s "$1" | cut -d'#' -f"$2"; }
+
+# HMAC-SHA256 as hex. openssl is the one that matches the PowerShell version
+# byte for byte; the sha256 fallbacks only keep the mascot working where
+# openssl is missing, and give that machine its own faces.
+gacha_hmac() {
+    if command -v openssl >/dev/null 2>&1; then
+        printf %s "$2" | openssl dgst -sha256 -hmac "$1" 2>/dev/null | sed 's/.*= *//'
+    elif command -v sha256sum >/dev/null 2>&1; then
+        printf %s "$1$2" | sha256sum 2>/dev/null | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then
+        printf %s "$1$2" | shasum -a 256 2>/dev/null | cut -d' ' -f1
+    fi
+}
+
+# Sets GACHA_TIER and GACHA_INDEX for today, or returns 1 when there is no key
+# - which is also what a fresh install looks like before the first turn ends.
+# Two independent 32-bit windows of one HMAC pick the tier and the face.
+gacha_draw() {
+    _key=$(cat "$CACHE_DIR/.gacha-key" 2>/dev/null | tr -d " 	
+")
+    [ -n "$_key" ] || return 1
+
+    _today=$(date +%Y%m%d 2>/dev/null)
+    case "$_today" in ''|*[!0-9]*) return 1 ;; esac
+
+    _sig=$(gacha_hmac "$_key" "gacha|v1|$_today")
+    [ -n "$_sig" ] || return 1
+    [ "${#_sig}" -ge 16 ] || return 1
+
+    _n1=$(printf '%d' "0x$(printf %s "$_sig" | cut -c1-8)" 2>/dev/null) || return 1
+    _n2=$(printf '%d' "0x$(printf %s "$_sig" | cut -c9-16)" 2>/dev/null) || return 1
+
+    _roll=$(( _n1 % 1000 ))
+    _acc=0
+    _ti=1
+    GACHA_TIER=common
+    for _odd in $MASCOT_ODDS; do
+        _acc=$(( _acc + _odd ))
+        if [ "$_roll" -lt "$_acc" ]; then
+            GACHA_TIER=$(printf %s "$MASCOT_TIERS" | cut -d' ' -f"$_ti")
+            break
+        fi
+        _ti=$(( _ti + 1 ))
+    done
+
+    _pool=$(gacha_pool "$GACHA_TIER")
+    _kn=$(kao_count "$_pool")
+    [ "$_kn" -gt 0 ] || return 1
+    GACHA_INDEX=$(( _n2 % _kn + 1 ))
+    return 0
+}
+
+gacha_pool() {
+    case "$1" in
+        common) printf %s "$KAO_COMMON" ;;
+        uncommon) printf %s "$KAO_UNCOMMON" ;;
+        rare) printf %s "$KAO_RARE" ;;
+        unique) printf %s "$KAO_UNIQUE" ;;
+        legend) printf %s "$KAO_LEGEND" ;;
+    esac
+}
+
+gacha_color() {
+    case "$1" in
+        legend)   printf %s "$C_LEGEND" ;;
+        unique)   printf %s "$C_UNIQUE" ;;
+        rare)     printf %s "$C_RARE" ;;
+        uncommon) printf %s "$C_UNCOMMON" ;;
+        *)        printf %s "$C_COMMON" ;;
+    esac
+}
+
+# Reads the turn state the hooks left for this session and draws the face.
+# Prints nothing when the hooks are not installed, so the line then looks
+# exactly as it did before the mascot existed.
 mascot() {
     [ "$SHOW_MASCOT" -eq 1 ] || return 0
     [ -n "$sid_key" ] || return 0
@@ -352,65 +435,26 @@ mascot() {
     [ -f "$_mf" ] || return 0
     _raw=$(cat "$_mf" 2>/dev/null) || return 0
     [ -n "$_raw" ] || return 0
+    _state=$(printf %s "$_raw" | awk '{print $1}')
 
-    _state=$(printf '%s' "$_raw" | awk '{print $1}')
-    _stamp=$(printf '%s' "$_raw" | awk '{print $2}')
+    if [ "$_state" = error ]; then
+        _fr=1
+        [ "$now" -gt 0 ] && _fr=$(( (now / 5) % 2 + 1 ))
+        printf '%s' "${C_CRIT}$(kao_frame "$KAO_ERROR" "$_fr")${RESET}"
+        return 0
+    fi
+    [ "$_state" = working ] || [ "$_state" = done ] || return 0
 
-    case "$_state" in
-        working)
-            _kn=$(kao_count "$KAO_WORK")
-            _frame=1
-            [ "$now" -gt 0 ] && _frame=$(( (now / 5) % _kn + 1 ))
-            printf '%s' "${DIM}$(kao_at "$KAO_WORK" "$_frame")${RESET}"
-            return 0
-            ;;
-        error)
-            printf '%s' "${C_CRIT}${KAO_ERROR}${RESET}"
-            return 0
-            ;;
-        done)
-            ;;
-        *)
-            return 0
-            ;;
-    esac
+    gacha_draw || return 0
+    _face=$(kao_face "$(gacha_pool "$GACHA_TIER")" "$GACHA_INDEX")
+    [ -n "$_face" ] || return 0
 
-    # The completion timestamp is the roll seed, so a finished turn keeps the
-    # same face across redraws instead of re-rolling on every refresh.
-    case "$_stamp" in ''|*[!0-9]*) _stamp=0 ;; esac
-
-    _h1=$(( (_stamp * 1103515245 + 12345) % 2147483648 ))
-    [ "$_h1" -lt 0 ] && _h1=$(( 0 - _h1 ))
-    _h2=$(( (_h1 * 1103515245 + 12345) % 2147483648 ))
-    [ "$_h2" -lt 0 ] && _h2=$(( 0 - _h2 ))
-
-    _roll=$(( _h1 % 1000 ))
-    _acc=0
-    _ti=1
-    _tier=common
-    for _odd in $MASCOT_ODDS; do
-        _acc=$(( _acc + _odd ))
-        if [ "$_roll" -lt "$_acc" ]; then
-            _tier=$(printf '%s' "$MASCOT_TIERS" | cut -d' ' -f"$_ti")
-            break
-        fi
-        _ti=$(( _ti + 1 ))
-    done
-
-    case "$_tier" in
-        legend)   _pool="$KAO_LEGEND";   _kc="$C_LEGEND" ;;
-        unique)   _pool="$KAO_UNIQUE";   _kc="$C_UNIQUE" ;;
-        rare)     _pool="$KAO_RARE";     _kc="$C_RARE" ;;
-        uncommon) _pool="$KAO_UNCOMMON"; _kc="$C_UNCOMMON" ;;
-        *)        _pool="$KAO_COMMON";   _kc="$C_COMMON" ;;
-    esac
-
-    _kn=$(kao_count "$_pool")
-    [ "$_kn" -gt 0 ] || return 0
-    _idx=$(( _h2 % _kn + 1 ))
-    printf '%s' "${_kc}$(kao_at "$_pool" "$_idx")${RESET}"
+    _fr=1
+    if [ "$_state" = working ] && [ "$now" -gt 0 ]; then
+        _fr=$(( (now / 5) % 2 + 1 ))
+    fi
+    printf '%s' "$(gacha_color "$GACHA_TIER")$(kao_frame "$_face" "$_fr")${RESET}"
 }
-
 # ---- output ----------------------------------------------------------------
 SEP="${DIM} | ${RESET}"
 line="${DIM}DIR${RESET} ${C_DIR}${project}${RESET}"
