@@ -28,6 +28,13 @@ $Ellipsis = [string][char]0x2026
 
 $ShowSevenDay = $false  # set to $true to also show the 7-day (weekly) meter
 
+# Mascot: a kaomoji at the end of the line that reflects what the session is
+# doing. It needs the companion hooks (mascot-hook.ps1) to know the state -
+# without them the state file never appears and the mascot stays hidden.
+$ShowMascot = $true
+# Rarity odds in per-mille, highest first. They must total 1000.
+$MascotOdds = @{ common = 600; uncommon = 250; rare = 100; unique = 40; legend = 10 }
+
 # Meters turn amber at WarnAt and red at CritAt.
 $WarnAt = 60
 $CritAt = 90
@@ -54,9 +61,16 @@ if ([string]::IsNullOrEmpty($env:NO_COLOR)) {
     $COk = "$($Esc)[38;5;46m"         # neon green — under WarnAt
     $CWarn = "$($Esc)[38;5;214m"      # amber      — WarnAt and up
     $CCrit = "$($Esc)[38;5;203m"      # red        — CritAt and up
+    # Mascot rarity palette, common -> legend.
+    $CCommon = "$($Esc)[38;5;255m"    # white
+    $CUncommon = "$($Esc)[38;5;82m"   # green
+    $CRare = "$($Esc)[38;5;117m"      # sky blue
+    $CUnique = "$($Esc)[38;5;141m"    # purple
+    $CLegend = "$($Esc)[1;38;5;208m"  # orange, bold
 } else {
     $Reset = ''; $Dim = ''; $CDir = ''; $CGitMain = ''; $CGitOther = ''
     $CModel = ''; $COk = ''; $CWarn = ''; $CCrit = ''
+    $CCommon = ''; $CUncommon = ''; $CRare = ''; $CUnique = ''; $CLegend = ''
 }
 
 $Now = 0
@@ -171,6 +185,144 @@ function Get-LeafName {
     return $name
 }
 
+# ---- mascot ---------------------------------------------------------------
+# Every glyph is a code point for the same reason the bar cells are: the file
+# then survives being saved in any encoding. The comment beside each entry
+# names the face instead of drawing it, so this block stays pure ASCII.
+
+# Two frames swapped on every refresh, so the mascot waves while a turn runs.
+$KaoWork = @(
+    @(0x1555, 0xFF08, 0x0020, 0x141B, 0x0020, 0xFF09, 0x1557),  # arms up
+    @(0x1566, 0xFF08, 0x0020, 0x141B, 0x0020, 0xFF09, 0x1564)   # arms down
+)
+
+# Shown when the turn ended in a failure (StopFailure hook).
+$KaoError = @(0xFF08, 0xFF1B, 0x3078, 0xFF1A, 0xFF09)           # crying
+
+# Rarity order, lowest rarity first. Get-MascotPick walks this in order, so it
+# must line up with $MascotOdds.
+$MascotTiers = @('common', 'uncommon', 'rare', 'unique', 'legend')
+
+# The roll pools. Add or remove faces freely; the pick is index-based.
+$KaoTable = @{
+    common = @(
+        @(0xFF08, 0x30FB, 0x03C9, 0x30FB, 0xFF09),                        # plain
+        @(0xFF08, 0x00B4, 0xFF65, 0x03C9, 0xFF65, 0xFF09),                # soft
+        @(0xFF08, 0x30FB, 0x005F, 0x30FB, 0xFF09),                        # blank
+        @(0xFF08, 0x0020, 0x02D8, 0x03C9, 0x02D8, 0x0020, 0xFF09),        # sleepy
+        @(0xFF08, 0x003D, 0x30FB, 0x03C9, 0x30FB, 0x003D, 0xFF09),        # cat
+        @(0xFF08, 0x30FB, 0x2200, 0x30FB, 0xFF09)                         # grin
+    )
+    uncommon = @(
+        @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09),                # happy
+        @(0xFF08, 0xFF61, 0xFF65, 0x03C9, 0xFF65, 0xFF61, 0xFF09),        # round
+        @(0xFF08, 0x005E, 0x25BD, 0x005E, 0xFF09),                        # laugh
+        @(0xFF08, 0x30FB, 0x3142, 0x30FB, 0xFF09),                        # smug
+        @(0xFF08, 0x25D5, 0x203F, 0x25D5, 0xFF09)                         # smile
+    )
+    rare = @(
+        @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09, 0x2727),        # happy sparkle
+        @(0x30FD, 0xFF08, 0x2022, 0x203F, 0x2022, 0xFF09, 0x30CE),        # cheer
+        @(0xFF08, 0x2605, 0x03C9, 0x2605, 0xFF09),                        # star eyes
+        @(0xFF08, 0x25D5, 0x203F, 0x25D5, 0xFF09, 0x2727),                # smile sparkle
+        @(0x005C, 0xFF08, 0x005E, 0x006F, 0x005E, 0xFF09, 0x002F)         # banzai
+    )
+    unique = @(
+        @(0xFF08, 0x2606, 0x25BD, 0x2606, 0xFF09),                        # shining
+        @(0x30FD, 0xFF08, 0x00B0, 0x3007, 0x00B0, 0xFF09, 0xFF89),        # shocked
+        @(0xFF08, 0xFF89, 0x25D5, 0x30EE, 0x25D5, 0xFF09, 0xFF89),        # excited
+        @(0xFF08, 0x2661, 0x203F, 0x2661, 0xFF09)                         # heart eyes
+    )
+    legend = @(
+        @(0x2727, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2727),        # blessed
+        @(0x30FD, 0xFF08, 0x2661, 0x203F, 0x2661, 0xFF09, 0x30CE),        # in love
+        @(0xFF08, 0xFF89, 0x2267, 0x2207, 0x2266, 0xFF09, 0xFF89),        # triumph
+        @(0x266A, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0x266A)  # singing
+    )
+}
+
+# Builds a face from its code points. Every glyph used here is inside the BMP,
+# so a plain [char] cast is both correct and cheap enough to run every refresh.
+function New-Kao {
+    param([int[]]$Cp)
+    $text = ''
+    foreach ($c in $Cp) { $text += [char]$c }
+    return $text
+}
+
+# Picks a tier and a face from a seed. The seed is the completion timestamp, so
+# the same finished turn always shows the same face no matter how many times the
+# line is redrawn - the roll happens once per turn, not once per refresh.
+function Get-MascotPick {
+    param([long]$Seed)
+
+    # Two passes of a plain LCG. Values stay well inside Int64 for any epoch, so
+    # there is no overflow and no dependency on unchecked arithmetic.
+    $h1 = ($Seed * 1103515245 + 12345) % 2147483648
+    if ($h1 -lt 0) { $h1 = -$h1 }
+    $h2 = ($h1 * 1103515245 + 12345) % 2147483648
+    if ($h2 -lt 0) { $h2 = -$h2 }
+
+    $roll = [int]($h1 % 1000)
+    $tier = $MascotTiers[0]
+    $acc = 0
+    foreach ($t in $MascotTiers) {
+        $acc += [int]$MascotOdds[$t]
+        if ($roll -lt $acc) { $tier = $t; break }
+    }
+
+    $pool = $KaoTable[$tier]
+    $idx = 0
+    if ($pool.Count -gt 0) { $idx = [int]($h2 % $pool.Count) }
+    return @{ Tier = $tier; Cp = $pool[$idx] }
+}
+
+# Reads the state the hooks left for this session and renders the mascot.
+# Returns '' when there is no state file, which is also what happens when the
+# hooks are not installed - the line then looks exactly as it did before.
+function Get-Mascot {
+    param([string]$SidKey)
+
+    if ([string]::IsNullOrWhiteSpace($SidKey)) { return '' }
+    $file = Join-Path $CacheDir "mascot-$($SidKey).txt"
+    $raw = ''
+    try { $raw = [System.IO.File]::ReadAllText($file).Trim() } catch { return '' }
+    if ([string]::IsNullOrWhiteSpace($raw)) { return '' }
+
+    $tok = $raw -split '\s+'
+    $state = $tok[0]
+
+    if ($state -eq 'working') {
+        $frame = 0
+        if ($Now -gt 0 -and $KaoWork.Count -gt 0) {
+            $frame = [int](($Now / 5) % $KaoWork.Count)
+        }
+        return "$($Dim)$(New-Kao $KaoWork[$frame])$($Reset)"
+    }
+
+    if ($state -eq 'error') {
+        return "$($CCrit)$(New-Kao $KaoError)$($Reset)"
+    }
+
+    if ($state -ne 'done') { return '' }
+
+    $stamp = 0
+    if ($tok.Count -ge 2) {
+        $parsed = Get-Epoch $tok[1]
+        if ($null -ne $parsed) { $stamp = $parsed }
+    }
+
+    $pick = Get-MascotPick $stamp
+    switch ($pick.Tier) {
+        'legend'   { $color = $CLegend }
+        'unique'   { $color = $CUnique }
+        'rare'     { $color = $CRare }
+        'uncommon' { $color = $CUncommon }
+        default    { $color = $CCommon }
+    }
+    return "$($color)$(New-Kao $pick.Cp)$($Reset)"
+}
+
 try {
     $raw = $null
     try { $raw = [Console]::In.ReadToEnd() } catch { $raw = $null }
@@ -281,7 +433,7 @@ try {
         # closes; sweep anything untouched for two days.
         try {
             $cutoff = (Get-Date).AddHours(-48)
-            Get-ChildItem -LiteralPath $CacheDir -Filter 'rl-*.txt' |
+            Get-ChildItem -LiteralPath $CacheDir -Include 'rl-*.txt', 'mascot-*.txt' -Recurse |
                 Where-Object { $_.LastWriteTime -lt $cutoff } |
                 Remove-Item -Force -Confirm:$false
         } catch { }
@@ -324,6 +476,10 @@ try {
     $out += "$($sep)$($Dim)5H$($Reset) $(Get-Meter $best5U $best5R)"
     if ($ShowSevenDay) {
         $out += "$($sep)$($Dim)7D$($Reset) $(Get-Meter $best7U $best7R)"
+    }
+    if ($ShowMascot) {
+        $mascot = Get-Mascot $sidKey
+        if ($mascot -ne '') { $out += " $($mascot)" }
     }
 
     Write-Output $out

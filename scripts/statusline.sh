@@ -22,6 +22,15 @@ DIR_MAX=32      # project name is left-truncated past this many characters
 
 SHOW_SEVEN_DAY=0  # set to 1 to also show the 7-day (weekly) meter
 
+# Mascot: a kaomoji at the end of the line reflecting what the session is doing.
+# It needs the companion hook (mascot-hook.sh) to know the state - without it the
+# state file never appears and the mascot simply stays hidden.
+SHOW_MASCOT=1
+# Rarity odds in per-mille, lowest rarity first. They must total 1000 and line up
+# with MASCOT_TIERS below.
+MASCOT_ODDS='600 250 100 40 10'
+MASCOT_TIERS='common uncommon rare unique legend'
+
 # Meters turn amber at WARN_AT and red at CRIT_AT.
 WARN_AT=60
 CRIT_AT=90
@@ -40,6 +49,11 @@ if [ -n "${NO_COLOR:-}" ]; then
     C_OK=''
     C_WARN=''
     C_CRIT=''
+    C_COMMON=''
+    C_UNCOMMON=''
+    C_RARE=''
+    C_UNIQUE=''
+    C_LEGEND=''
 else
     ESC=$(printf '\033')
     RESET="${ESC}[0m"
@@ -53,6 +67,12 @@ else
     C_OK="${ESC}[38;5;46m"          # neon green  — under WARN_AT
     C_WARN="${ESC}[38;5;214m"       # amber       — WARN_AT and up
     C_CRIT="${ESC}[38;5;203m"       # red         — CRIT_AT and up
+    # Mascot rarity palette, common -> legend.
+    C_COMMON="${ESC}[38;5;255m"     # white
+    C_UNCOMMON="${ESC}[38;5;82m"    # green
+    C_RARE="${ESC}[38;5;117m"       # sky blue
+    C_UNIQUE="${ESC}[38;5;141m"     # purple
+    C_LEGEND="${ESC}[1;38;5;208m"   # orange, bold
 fi
 
 payload=$(cat | tr -d '\n\r')
@@ -175,7 +195,7 @@ if [ -n "$five_i" ] && [ -n "$sid_key" ] && [ -d "$CACHE_DIR" ]; then
         mv -f "$_tmp" "$CACHE_DIR/rl-$sid_key.txt"
     # Entries from long-dead sessions stop mattering once their window closes;
     # sweep anything untouched for two days to keep the directory small.
-    find "$CACHE_DIR" -name 'rl-*.txt' -mmin +2880 -exec rm -f {} + 2>/dev/null
+    find "$CACHE_DIR" \( -name 'rl-*.txt' -o -name 'mascot-*.txt' \) -mmin +2880 -exec rm -f {} + 2>/dev/null
 fi
 
 best5u=$five_i; best5r=${five_r:-0}
@@ -307,6 +327,90 @@ meter() {
     printf '%s' "$_out"
 }
 
+# ---- mascot ----------------------------------------------------------------
+# Pools are pipe-separated because POSIX sh has no arrays. No face contains a
+# pipe, so cut -d'|' indexes them safely.
+KAO_WORK='ᕕ( ᐛ )ᕗ|ᕦ( ᐛ )ᕤ'
+KAO_ERROR='（；へ：）'
+KAO_COMMON='（・ω・）|（´･ω･）|（・_・）|（ ˘ω˘ ）|（=・ω・=）|（・∀・）'
+KAO_UNCOMMON='（๑˃ᴗ˂）|（｡･ω･｡）|（^▽^）|（・ㅂ・）|（◕‿◕）'
+KAO_RARE='（๑˃ᴗ˂）✧|ヽ（•‿•）ノ|（★ω★）|（◕‿◕）✧|\(^o^)/'
+KAO_UNIQUE='（☆▽☆）|ヽ（°〇°）ﾉ|（ﾉ◕ヮ◕）ﾉ|（♡‿♡）'
+KAO_LEGEND='✧（◕ᴗ◕）✧|ヽ（♡‿♡）ノ|（ﾉ≧∇≦）ﾉ|♪（๑ᴖ◡ᴖ๑）♪'
+
+kao_count() { printf '%s' "$1" | awk -F'|' '{print NF}'; }
+kao_at() { printf '%s' "$1" | cut -d'|' -f"$2"; }
+
+# Renders the mascot for the state the hook recorded, or nothing at all when
+# there is no state file - which is exactly what happens when the hook is not
+# installed, so the line then looks as it always did.
+mascot() {
+    [ "$SHOW_MASCOT" -eq 1 ] || return 0
+    [ -n "$sid_key" ] || return 0
+
+    _mf="$CACHE_DIR/mascot-$sid_key.txt"
+    [ -f "$_mf" ] || return 0
+    _raw=$(cat "$_mf" 2>/dev/null) || return 0
+    [ -n "$_raw" ] || return 0
+
+    _state=$(printf '%s' "$_raw" | awk '{print $1}')
+    _stamp=$(printf '%s' "$_raw" | awk '{print $2}')
+
+    case "$_state" in
+        working)
+            _kn=$(kao_count "$KAO_WORK")
+            _frame=1
+            [ "$now" -gt 0 ] && _frame=$(( (now / 5) % _kn + 1 ))
+            printf '%s' "${DIM}$(kao_at "$KAO_WORK" "$_frame")${RESET}"
+            return 0
+            ;;
+        error)
+            printf '%s' "${C_CRIT}${KAO_ERROR}${RESET}"
+            return 0
+            ;;
+        done)
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+
+    # The completion timestamp is the roll seed, so a finished turn keeps the
+    # same face across redraws instead of re-rolling on every refresh.
+    case "$_stamp" in ''|*[!0-9]*) _stamp=0 ;; esac
+
+    _h1=$(( (_stamp * 1103515245 + 12345) % 2147483648 ))
+    [ "$_h1" -lt 0 ] && _h1=$(( 0 - _h1 ))
+    _h2=$(( (_h1 * 1103515245 + 12345) % 2147483648 ))
+    [ "$_h2" -lt 0 ] && _h2=$(( 0 - _h2 ))
+
+    _roll=$(( _h1 % 1000 ))
+    _acc=0
+    _ti=1
+    _tier=common
+    for _odd in $MASCOT_ODDS; do
+        _acc=$(( _acc + _odd ))
+        if [ "$_roll" -lt "$_acc" ]; then
+            _tier=$(printf '%s' "$MASCOT_TIERS" | cut -d' ' -f"$_ti")
+            break
+        fi
+        _ti=$(( _ti + 1 ))
+    done
+
+    case "$_tier" in
+        legend)   _pool="$KAO_LEGEND";   _kc="$C_LEGEND" ;;
+        unique)   _pool="$KAO_UNIQUE";   _kc="$C_UNIQUE" ;;
+        rare)     _pool="$KAO_RARE";     _kc="$C_RARE" ;;
+        uncommon) _pool="$KAO_UNCOMMON"; _kc="$C_UNCOMMON" ;;
+        *)        _pool="$KAO_COMMON";   _kc="$C_COMMON" ;;
+    esac
+
+    _kn=$(kao_count "$_pool")
+    [ "$_kn" -gt 0 ] || return 0
+    _idx=$(( _h2 % _kn + 1 ))
+    printf '%s' "${_kc}$(kao_at "$_pool" "$_idx")${RESET}"
+}
+
 # ---- output ----------------------------------------------------------------
 SEP="${DIM} | ${RESET}"
 line="${DIM}DIR${RESET} ${C_DIR}${project}${RESET}"
@@ -317,6 +421,8 @@ line="${line}${SEP}${DIM}5H${RESET} $(meter "$best5u" "$best5r")"
 if [ "$SHOW_SEVEN_DAY" -eq 1 ]; then
     line="${line}${SEP}${DIM}7D${RESET} $(meter "$best7u" "$best7r")"
 fi
+_mascot=$(mascot)
+[ -n "$_mascot" ] && line="${line} ${_mascot}"
 
 printf '%s\n' "$line"
 exit 0

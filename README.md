@@ -3,7 +3,7 @@
 A cross-platform, colored status line for [Claude Code](https://claude.com/claude-code).
 
 ```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [◼◼◼◼◻◻◻◻◻◻] 42% | 5H [◼◼◼◼◼◼◻◻◻◻] 63% 2h05m
+DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [◼◼◼◼◻◻◻◻◻◻] 42% | 5H [◼◼◼◼◼◼◻◻◻◻] 63% 2h05m （๑˃ᴗ˂）✧
 ```
 
 Two implementations that print byte-identical output, so your status line looks
@@ -169,6 +169,41 @@ SHOW_SEVEN_DAY=1        # statusline.sh
 $ShowSevenDay = $true   # statusline.ps1
 ```
 
+### Mascot — what the turn is doing
+
+The face at the end of the line tracks the turn itself.
+
+| State | Face | Color |
+| --- | --- | --- |
+| running | `ᕕ( ᐛ )ᕗ` alternating with `ᕦ( ᐛ )ᕤ` | dim |
+| finished | one of 24 faces, rolled by rarity | by rarity, below |
+| failed | `（；へ：）` | red |
+
+Claude Code never tells the status line whether a turn is running, so three
+hooks record it and the script reads it back:
+
+| Hook event | State written |
+| --- | --- |
+| `UserPromptSubmit` | `working` |
+| `Stop` | `done` |
+| `StopFailure` | `error` |
+
+The installer wires all three up. Pass `--no-mascot` (`-NoMascot` on Windows) to
+skip them — without the hooks the state file never appears, the mascot stays
+hidden, and the line looks exactly as it did before.
+
+Every finished turn rolls a face. The roll is seeded with the completion
+timestamp, so a finished turn keeps the same face until the next one instead of
+re-rolling on every refresh.
+
+| Rarity | Odds | Color | Faces in pool |
+| --- | --- | --- | --- |
+| common | 60% | white | 6 |
+| uncommon | 25% | green | 5 |
+| rare | 10% | sky blue | 5 |
+| unique | 4% | purple | 4 |
+| legend | 1% | orange, bold | 4 |
+
 ### Meter colors and markers
 
 | State | Meaning |
@@ -284,6 +319,22 @@ for dots, or plain `#`/`-` if your font is limited.
 
 The PowerShell version builds its glyphs from code points on purpose, so the
 file survives being saved in any encoding.
+
+**Mascot.**
+
+```sh
+SHOW_MASCOT=1                                                   # statusline.sh
+MASCOT_ODDS='600 250 100 40 10'
+```
+```powershell
+$ShowMascot = $true                                             # statusline.ps1
+$MascotOdds = @{ common = 600; uncommon = 250; rare = 100; unique = 40; legend = 10 }
+```
+
+Set it to `0` / `$false` to hide the face without touching the hooks. The odds
+are per-mille and must total 1000. The face pools sit just below, in `KAO_*`
+(sh) and `$KaoTable` (PowerShell) — add or remove entries freely, the pick is
+index-based.
 
 **Actual glyph size** is your terminal's font size — no escape code can change
 it for part of a line. If the bar still reads small, raise the terminal font
@@ -414,6 +465,26 @@ Claude Code 플러그인은 메인 상태라인을 직접 등록할 수 없기 �
 `SHOW_SEVEN_DAY=1`(sh) 또는 `$ShowSevenDay = $true`(PowerShell) 한 줄만 고치면
 켜집니다.
 
+**마스코트** — 줄 맨 뒤의 카오모지는 **지금 턴이 어떤 상태인지**를 나타냅니다.
+작업 중에는 `ᕕ( ᐛ )ᕗ`와 `ᕦ( ᐛ )ᕤ`가 번갈아 나오고, 끝나면 얼굴 하나가 뽑히고,
+실패하면 `（；へ：）`가 빨갛게 뜹니다.
+
+Claude Code는 턴이 도는 중인지를 상태라인에 알려주지 않기 때문에, 훅 세 개
+(`UserPromptSubmit`·`Stop`·`StopFailure`)가 상태를 파일에 적고 스크립트가 그걸
+읽습니다. 설치 스크립트가 자동으로 등록하며, `--no-mascot`(Windows는 `-NoMascot`)을
+주면 건너뜁니다. 훅이 없으면 마스코트는 아예 나오지 않고 줄 모양도 예전 그대로입니다.
+
+턴이 끝날 때마다 얼굴을 하나 뽑습니다. **완료 시각을 시드로 쓰기 때문에** 5초마다
+다시 그려도 얼굴이 바뀌지 않고, 다음 턴이 끝날 때까지 그대로 유지됩니다.
+
+| 등급 | 확률 | 색상 | 얼굴 수 |
+| --- | --- | --- | --- |
+| 커먼 | 60% | 흰색 | 6 |
+| 언커먼 | 25% | 초록 | 5 |
+| 레어 | 10% | 하늘색 | 5 |
+| 유니크 | 4% | 보라 | 4 |
+| 레전드 | 1% | 주황, 굵게 | 4 |
+
 **색상** — 60% 미만은 형광 초록, 60% 이상은 앰버, 90% 이상은 빨강입니다. 대괄호와
 빈 칸의 테두리까지 게이지 전체가 현재 구간 색 하나로 통일됩니다. 값이 아직
 없으면 `--%`로 표시하고, 오래된 값이면 `~11%`처럼 물결표를 붙이고 흐리게 처리합니다.
@@ -486,6 +557,11 @@ CTX에는 이 문제가 없습니다. 세션 자기 기록에서 계산하는 �
 간격(`BAR_GAP`), 막대 길이(`BAR_LEN`), 색이 바뀌는 기준(`WARN_AT`/`CRIT_AT`),
 프로젝트 이름 최대 길이(`DIR_MAX`), 주간 게이지 표시 여부가 전부 거기 모여 있습니다.
 `NO_COLOR=1` 환경변수를 주면 색 없이 출력됩니다.
+
+마스코트는 `SHOW_MASCOT=0`(sh) 또는 `$ShowMascot = $false`(PowerShell)로 끌 수
+있습니다. 등급 확률은 `MASCOT_ODDS` / `$MascotOdds`에서 천분율로 조정하며 합이
+1000이어야 합니다. 얼굴 목록은 바로 아래 `KAO_*` / `$KaoTable`에 있고, 자유롭게
+추가하거나 빼도 됩니다.
 
 기본 채움 문자는 정사각형이 아니라 U+2589(왼쪽 7/8 블록)입니다. 셀 높이를 꽉 채우면서
 너비는 7/8만 차지하기 때문에, 칸을 서로 붙여 놓아도 남는 1/8이 실선 같은 얇은 틈으로
