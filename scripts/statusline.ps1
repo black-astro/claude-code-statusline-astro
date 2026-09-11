@@ -28,6 +28,13 @@ $Ellipsis = [string][char]0x2026
 
 $ShowSevenDay = $false  # set to $true to also show the 7-day (weekly) meter
 
+# Mascot: a kaomoji at the end of the line that reflects what the session is
+# doing. It needs the companion hooks (mascot-hook.ps1) to know the state -
+# without them the state file never appears and the mascot stays hidden.
+$ShowMascot = $true
+# Rarity odds in per-mille, highest first. They must total 1000.
+$MascotOdds = @{ common = 600; uncommon = 250; rare = 100; unique = 40; legend = 10 }
+
 # Meters turn amber at WarnAt and red at CritAt.
 $WarnAt = 60
 $CritAt = 90
@@ -54,9 +61,16 @@ if ([string]::IsNullOrEmpty($env:NO_COLOR)) {
     $COk = "$($Esc)[38;5;46m"         # neon green — under WarnAt
     $CWarn = "$($Esc)[38;5;214m"      # amber      — WarnAt and up
     $CCrit = "$($Esc)[38;5;203m"      # red        — CritAt and up
+    # Mascot rarity palette, common -> legend.
+    $CCommon = "$($Esc)[38;5;255m"    # white
+    $CUncommon = "$($Esc)[38;5;82m"   # green
+    $CRare = "$($Esc)[38;5;117m"      # sky blue
+    $CUnique = "$($Esc)[38;5;141m"    # purple
+    $CLegend = "$($Esc)[1;38;5;208m"  # orange, bold
 } else {
     $Reset = ''; $Dim = ''; $CDir = ''; $CGitMain = ''; $CGitOther = ''
     $CModel = ''; $COk = ''; $CWarn = ''; $CCrit = ''
+    $CCommon = ''; $CUncommon = ''; $CRare = ''; $CUnique = ''; $CLegend = ''
 }
 
 $Now = 0
@@ -171,6 +185,233 @@ function Get-LeafName {
     return $name
 }
 
+# ---- mascot ---------------------------------------------------------------
+# The face is the day's draw. It is never stored and it is never rolled here:
+# it is derived from HMAC-SHA256(machine key, today's date). The same day
+# therefore always yields the same face however often this script runs, and no
+# amount of editing or deleting files changes it - forcing a legend would mean
+# inverting HMAC-SHA256. The key is created once by mascot-hook.ps1.
+#
+# Each face carries two frames of one expression, always the same width so the
+# line never jitters. While a turn runs the frames alternate on every refresh;
+# once the turn is done the face settles on its first frame.
+#
+# Glyphs are code points, like the bar cells, so the file survives any encoding.
+
+$KaoError = @(
+    @(0xFF08, 0xFF1B, 0x3078, 0xFF1A, 0xFF09),
+    @(0xFF08, 0xFF1B, 0x03C9, 0xFF1B, 0xFF09)
+)
+
+$MascotTiers = @('common', 'uncommon', 'rare', 'unique', 'legend')
+
+# Rarity -> faces -> frames.
+$KaoTable = @{
+    common = @(
+        @(  # plain / blink
+            @(0xFF08, 0x30FB, 0x03C9, 0x30FB, 0xFF09),
+            @(0xFF08, 0xFF0D, 0x03C9, 0xFF0D, 0xFF09)
+        ),
+        @(  # soft / blink
+            @(0xFF08, 0x00B4, 0xFF65, 0x03C9, 0xFF65, 0xFF09),
+            @(0xFF08, 0x00B4, 0xFF0D, 0x03C9, 0xFF0D, 0xFF09)
+        ),
+        @(  # blank / blink
+            @(0xFF08, 0x30FB, 0x005F, 0x30FB, 0xFF09),
+            @(0xFF08, 0xFF0D, 0x005F, 0xFF0D, 0xFF09)
+        ),
+        @(  # sleepy / smile
+            @(0xFF08, 0x0020, 0x02D8, 0x03C9, 0x02D8, 0x0020, 0xFF09),
+            @(0xFF08, 0x0020, 0x02D8, 0x1D17, 0x02D8, 0x0020, 0xFF09)
+        ),
+        @(  # cat / blink
+            @(0xFF08, 0x003D, 0x30FB, 0x03C9, 0x30FB, 0x003D, 0xFF09),
+            @(0xFF08, 0x003D, 0xFF0D, 0x03C9, 0xFF0D, 0x003D, 0xFF09)
+        ),
+        @(  # grin / blink
+            @(0xFF08, 0x30FB, 0x2200, 0x30FB, 0xFF09),
+            @(0xFF08, 0xFF0D, 0x2200, 0xFF0D, 0xFF09)
+        )
+    )
+    uncommon = @(
+        @(  # happy / wink
+            @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09),
+            @(0xFF08, 0x0E51, 0x02C2, 0x1D17, 0x02C3, 0xFF09)
+        ),
+        @(  # round / blink
+            @(0xFF08, 0xFF61, 0xFF65, 0x03C9, 0xFF65, 0xFF61, 0xFF09),
+            @(0xFF08, 0xFF61, 0xFF0D, 0x03C9, 0xFF0D, 0xFF61, 0xFF09)
+        ),
+        @(  # laugh / hum
+            @(0xFF08, 0x005E, 0x25BD, 0x005E, 0xFF09),
+            @(0xFF08, 0x005E, 0x03C9, 0x005E, 0xFF09)
+        ),
+        @(  # smug / blink
+            @(0xFF08, 0x30FB, 0x3142, 0x30FB, 0xFF09),
+            @(0xFF08, 0xFF0D, 0x3142, 0xFF0D, 0xFF09)
+        ),
+        @(  # smile / blink
+            @(0xFF08, 0x25D5, 0x203F, 0x25D5, 0xFF09),
+            @(0xFF08, 0x25E0, 0x203F, 0x25E0, 0xFF09)
+        )
+    )
+    rare = @(
+        @(  # sparkle
+            @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09, 0x2727),
+            @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09, 0x2726)
+        ),
+        @(  # cheer / wave
+            @(0x30FD, 0xFF08, 0x2022, 0x203F, 0x2022, 0xFF09, 0x30CE),
+            @(0x30FE, 0xFF08, 0x2022, 0x203F, 0x2022, 0xFF09, 0xFF89)
+        ),
+        @(  # star eyes
+            @(0xFF08, 0x2605, 0x03C9, 0x2605, 0xFF09),
+            @(0xFF08, 0x2606, 0x03C9, 0x2606, 0xFF09)
+        ),
+        @(  # smile sparkle
+            @(0xFF08, 0x25D5, 0x203F, 0x25D5, 0xFF09, 0x2727),
+            @(0xFF08, 0x25E0, 0x203F, 0x25E0, 0xFF09, 0x2726)
+        ),
+        @(  # banzai
+            @(0x005C, 0xFF08, 0x005E, 0x006F, 0x005E, 0xFF09, 0x002F),
+            @(0x005C, 0xFF08, 0x005E, 0x004F, 0x005E, 0xFF09, 0x002F)
+        )
+    )
+    unique = @(
+        @(  # shining
+            @(0xFF08, 0x2606, 0x25BD, 0x2606, 0xFF09),
+            @(0xFF08, 0x2605, 0x25BD, 0x2605, 0xFF09)
+        ),
+        @(  # shocked
+            @(0x30FD, 0xFF08, 0x00B0, 0x3007, 0x00B0, 0xFF09, 0xFF89),
+            @(0x30FE, 0xFF08, 0x00B0, 0x0414, 0x00B0, 0xFF09, 0xFF89)
+        ),
+        @(  # excited
+            @(0xFF08, 0xFF89, 0x25D5, 0x30EE, 0x25D5, 0xFF09, 0xFF89),
+            @(0xFF08, 0x30FD, 0x25D5, 0x30EE, 0x25D5, 0xFF09, 0x30FD)
+        ),
+        @(  # heart eyes
+            @(0xFF08, 0x2661, 0x203F, 0x2661, 0xFF09),
+            @(0xFF08, 0x2665, 0x203F, 0x2665, 0xFF09)
+        )
+    )
+    legend = @(
+        @(  # blessed
+            @(0x2727, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2727),
+            @(0x2726, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2726)
+        ),
+        @(  # in love
+            @(0x30FD, 0xFF08, 0x2661, 0x203F, 0x2661, 0xFF09, 0x30CE),
+            @(0x30FE, 0xFF08, 0x2665, 0x203F, 0x2665, 0xFF09, 0xFF89)
+        ),
+        @(  # triumph
+            @(0xFF08, 0xFF89, 0x2267, 0x2207, 0x2266, 0xFF09, 0xFF89),
+            @(0xFF08, 0xFF89, 0x2267, 0x25BD, 0x2266, 0xFF09, 0xFF89)
+        ),
+        @(  # singing
+            @(0x266A, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0x266A),
+            @(0x266B, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0x266B)
+        )
+    )
+}
+
+# Builds a face frame from its code points. Every glyph is inside the BMP, so a
+# plain [char] cast is both correct and cheap enough to run every refresh.
+function New-Kao {
+    param([int[]]$Cp)
+    $text = ''
+    foreach ($c in $Cp) { $text += [char]$c }
+    return $text
+}
+
+# The per-machine key the draw is derived from. Read-only here; mascot-hook.ps1
+# creates it once with a CSPRNG. No key means no mascot, which is also what a
+# fresh install looks like before the first turn ends.
+function Get-GachaKey {
+    $file = Join-Path $CacheDir '.gacha-key'
+    try { return [System.IO.File]::ReadAllText($file).Trim() } catch { return '' }
+}
+
+# Today's draw: @{ Tier; Index } or $null when there is no key.
+# Two independent 32-bit windows of one HMAC pick the tier and the face, so the
+# tier is not recoverable from the face or the other way round.
+function Get-GachaDraw {
+    $key = Get-GachaKey
+    if ($key -eq '') { return $null }
+
+    $today = ''
+    try { $today = (Get-Date).ToString('yyyyMMdd') } catch { return $null }
+
+    $bytes = $null
+    $hmac = $null
+    try {
+        $hmac = New-Object System.Security.Cryptography.HMACSHA256
+        $hmac.Key = [Text.Encoding]::UTF8.GetBytes($key)
+        $bytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes("gacha|v1|$today"))
+    } catch {
+        return $null
+    } finally {
+        if ($null -ne $hmac) { $hmac.Dispose() }
+    }
+    if ($null -eq $bytes -or $bytes.Length -lt 8) { return $null }
+
+    $n1 = ([long]$bytes[0] * 16777216) + ([long]$bytes[1] * 65536) + ([long]$bytes[2] * 256) + [long]$bytes[3]
+    $n2 = ([long]$bytes[4] * 16777216) + ([long]$bytes[5] * 65536) + ([long]$bytes[6] * 256) + [long]$bytes[7]
+
+    $roll = [int]($n1 % 1000)
+    $tier = $MascotTiers[0]
+    $acc = 0
+    foreach ($t in $MascotTiers) {
+        $acc += [int]$MascotOdds[$t]
+        if ($roll -lt $acc) { $tier = $t; break }
+    }
+
+    $pool = $KaoTable[$tier]
+    $idx = 0
+    if ($pool.Count -gt 0) { $idx = [int]($n2 % $pool.Count) }
+    return @{ Tier = $tier; Index = $idx }
+}
+
+# Reads the turn state the hooks left for this session and draws the face.
+# Returns '' when the hooks are not installed, so the line then looks exactly
+# as it did before the mascot existed.
+function Get-Mascot {
+    param([string]$SidKey)
+
+    if ([string]::IsNullOrWhiteSpace($SidKey)) { return '' }
+    $file = Join-Path $CacheDir "mascot-$($SidKey).txt"
+    $raw = ''
+    try { $raw = [System.IO.File]::ReadAllText($file).Trim() } catch { return '' }
+    if ([string]::IsNullOrWhiteSpace($raw)) { return '' }
+
+    $state = ($raw -split '\s+')[0]
+    $working = ($state -eq 'working')
+
+    if ($state -eq 'error') {
+        $frame = 0
+        if ($Now -gt 0) { $frame = [int](($Now / 5) % $KaoError.Count) }
+        return "$($CCrit)$(New-Kao $KaoError[$frame])$($Reset)"
+    }
+    if (-not $working -and $state -ne 'done') { return '' }
+
+    $draw = Get-GachaDraw
+    if ($null -eq $draw) { return '' }
+
+    $face = $KaoTable[$draw.Tier][$draw.Index]
+    $frame = 0
+    if ($working -and $Now -gt 0 -and $face.Count -gt 0) {
+        $frame = [int](($Now / 5) % $face.Count)
+    }
+
+    switch ($draw.Tier) {
+        'legend'   { $color = $CLegend }
+        'unique'   { $color = $CUnique }
+        'rare'     { $color = $CRare }
+        'uncommon' { $color = $CUncommon }
+        default    { $color = $CCommon }
+    }
+    return "$($color)$(New-Kao $face[$frame])$($Reset)"
+}
 try {
     $raw = $null
     try { $raw = [Console]::In.ReadToEnd() } catch { $raw = $null }
@@ -281,7 +522,7 @@ try {
         # closes; sweep anything untouched for two days.
         try {
             $cutoff = (Get-Date).AddHours(-48)
-            Get-ChildItem -LiteralPath $CacheDir -Filter 'rl-*.txt' |
+            Get-ChildItem -LiteralPath $CacheDir -Include 'rl-*.txt', 'mascot-*.txt' -Recurse |
                 Where-Object { $_.LastWriteTime -lt $cutoff } |
                 Remove-Item -Force -Confirm:$false
         } catch { }
@@ -324,6 +565,10 @@ try {
     $out += "$($sep)$($Dim)5H$($Reset) $(Get-Meter $best5U $best5R)"
     if ($ShowSevenDay) {
         $out += "$($sep)$($Dim)7D$($Reset) $(Get-Meter $best7U $best7R)"
+    }
+    if ($ShowMascot) {
+        $mascot = Get-Mascot $sidKey
+        if ($mascot -ne '') { $out += " $($mascot)" }
     }
 
     Write-Output $out

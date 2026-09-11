@@ -1,26 +1,26 @@
 # claude-code-statusline-astro
 
-A cross-platform, colored status line for [Claude Code](https://claude.com/claude-code).
+Claude Code 터미널 맨 아래에 **지금 어디서 무엇을 하고 있는지**를 한 줄로 보여줍니다.
 
-```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [◼◼◼◼◻◻◻◻◻◻] 42% | 5H [◼◼◼◼◼◼◻◻◻◻] 63% 2h05m
-```
+![상태라인 예시](docs/use.png)
 
-Two implementations that print byte-identical output, so your status line looks
-the same on every machine you work on:
+프로젝트 폴더, git 브랜치, 모델, 컨텍스트 사용량, 5시간 사용 한도, 그리고 맨 뒤에
+그날의 마스코트가 표시됩니다. Windows · macOS · Linux 어디서나 같은 모양입니다.
 
-| Platform | Script | Requirements |
+| 환경 | 쓰는 파일 | 필요한 것 |
 | --- | --- | --- |
-| Windows (PowerShell, cmd) | `scripts/statusline.ps1` | Windows PowerShell 5.1 — preinstalled |
-| macOS, Linux, WSL, Git Bash | `scripts/statusline.sh` | POSIX `sh` — `jq` used when present, not required |
+| Windows (PowerShell, cmd) | `scripts/statusline.ps1` | Windows PowerShell 5.1 (기본 설치됨) |
+| macOS · Linux · WSL · Git Bash | `scripts/statusline.sh` | POSIX `sh` (`jq`는 있으면 쓰고 없어도 됨) |
 
-> Community project. Not affiliated with or endorsed by Anthropic.
+> 개인 프로젝트입니다. Anthropic과는 관계가 없습니다.
 
 ---
 
-## Install
+# 설치
 
-### As a Claude Code plugin
+## 방법 1 — 플러그인 (추천)
+
+Claude Code 안에서 그대로 입력하면 됩니다.
 
 ```
 /plugin marketplace add black-astro/claude-code-statusline-astro
@@ -28,470 +28,269 @@ the same on every machine you work on:
 /statusline-install
 ```
 
-Claude Code plugins cannot register the main status line by themselves, so the
-bundled `/statusline-install` command does the last step: it copies the right
-script for your platform into `~/.claude/` and merges a `statusLine` entry into
-your `~/.claude/settings.json`.
+마지막 `/statusline-install`까지 실행해야 설정이 적용됩니다. 플러그인은 상태라인을
+직접 등록할 수 없어서, 이 커맨드가 스크립트 복사와 `settings.json` 수정을 대신 해
+줍니다.
 
-### One-line install
+## 방법 2 — 한 줄 설치
 
-macOS / Linux / WSL:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main/install.sh | sh
-```
-
-Windows PowerShell:
+**Windows (PowerShell)**
 
 ```powershell
 irm https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main/install.ps1 | iex
 ```
 
-### From a clone
+**macOS · Linux · WSL**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main/install.sh | sh
+```
+
+## 방법 3 — 직접 받아서
 
 ```sh
 git clone https://github.com/black-astro/claude-code-statusline-astro.git
 cd claude-code-statusline-astro
-sh install.sh          # macOS / Linux / WSL
-.\install.ps1          # Windows
+
+./install.sh          # macOS · Linux · WSL
+.\install.ps1         # Windows
 ```
 
-### Manual
+마스코트가 필요 없으면 `--no-mascot` (Windows는 `-NoMascot`)을 붙이세요.
 
-Copy the script for your platform into `~/.claude/`, then add a `statusLine`
-entry to `~/.claude/settings.json`. Keep every other key in that file.
+## 설치하면 벌어지는 일
 
-Windows:
+1. `~/.claude/` 에 스크립트 2개를 복사합니다 (`statusline`, `mascot-hook`)
+2. `~/.claude/settings.json` 에 `statusLine` 항목과 훅 3개를 추가합니다
+3. 원래 설정은 `settings.json.bak` 으로 백업합니다
 
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:/Users/YOU/.claude/statusline.ps1",
-    "refreshInterval": 5
-  }
-}
-```
+**기존 설정은 지우지 않습니다.** 이미 쓰고 있던 다른 훅이나 권한 설정은 그대로 두고
+필요한 항목만 더합니다. 여러 번 실행해도 중복으로 쌓이지 않습니다.
 
-macOS / Linux:
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "sh \"/home/you/.claude/statusline.sh\"",
-    "refreshInterval": 5
-  }
-}
-```
-
-Restart Claude Code or open a new session to see it.
-
-That restart is only needed to register the `statusLine` setting. Once it is
-registered, Claude Code re-reads the script file on every invocation, so later
-edits to the bar characters, colors or thresholds take effect within seconds in
-every open session — no restart, no reinstall.
-
-Every installer backs up your existing `settings.json` to `settings.json.bak`
-and only adds the `statusLine` key — nothing else in the file is touched.
-
-### About cmd.exe
-
-You do not need to do anything special for cmd. Claude Code launches the status
-line command itself through `cmd.exe` on Windows, and the PowerShell invocation
-above works from there. `scripts/statusline.cmd` is included for anyone who
-wants a single batch entry point — it forwards stdin to the PowerShell script,
-since batch cannot parse JSON.
+설치 후 **Claude Code를 새로 열어야** 상태라인이 나타납니다.
 
 ---
 
-## Reading the status line
+# 설정 바꾸기
 
-```
-DIR claude-code-statusline-astro | GIT main | MODEL Opus 5 | CTX [◼◼◼◼◻◻◻◻◻◻] 42% | 5H [◼◼◼◼◼◼◻◻◻◻] 63% 2h05m
-    └── project root              └── branch  └── model      └── context used  └── 5-hour limit used, resets in 2h05m
-```
+고칠 거리는 전부 스크립트 맨 위에 모여 있습니다. `~/.claude/statusline.ps1` 또는
+`~/.claude/statusline.sh` 를 열어 값만 바꾸면 됩니다.
 
-### `DIR` — project root
+| 바꾸고 싶은 것 | sh | PowerShell |
+| --- | --- | --- |
+| 막대 길이 | `BAR_LEN=10` | `$BarLength = 10` |
+| 막대 문양 | `BAR_FULL='◼'` `BAR_EMPTY='◻'` | `$BarFull` `$BarEmpty` |
+| 색 바뀌는 기준 | `WARN_AT=60` `CRIT_AT=90` | `$WarnAt` `$CritAt` |
+| 프로젝트 이름 최대 길이 | `DIR_MAX=32` | `$DirMax = 32` |
+| 주간(7일) 게이지 켜기 | `SHOW_SEVEN_DAY=1` | `$ShowSevenDay = $true` |
+| 마스코트 끄기 | `SHOW_MASCOT=0` | `$ShowMascot = $false` |
+| 등급 확률 | `MASCOT_ODDS='600 250 100 40 10'` | `$MascotOdds` |
 
-The name of the repository root you are working in, not the full path. If you
-are three directories deep inside a project, this still shows the project name,
-because that is what identifies the session. Outside a git repository it falls
-back to the name of the current directory. Names longer than 32 characters lose
-their head, not their tail: `…ly-long-project-name`.
+색을 아예 빼고 싶으면 `NO_COLOR=1` 환경변수를 주면 됩니다.
 
-### `GIT` — branch
+막대 문양으로 자주 쓸 만한 조합: `▮`/`▯`, `▉`/`░`, `█`/`░`, `●`/`○`, 폰트가 빈약하면
+`#`/`-` 도 괜찮습니다.
 
-The current branch. **Magenta** for `main` and `master`, **sky blue** for every
-other branch — so you notice at a glance when you are about to commit to the
-default branch. Detached HEAD shows the short commit hash. Outside a repository
-it shows a dim `-`.
+---
 
-### `MODEL` — active model
+# 문제가 생기면
 
-Whatever Claude Code reports as the current model display name.
+**상태라인이 안 보여요**
+Claude Code를 완전히 닫았다 여세요. 그래도 없으면 `~/.claude/settings.json` 에
+`statusLine` 항목이 있는지 확인하세요.
 
-### `CTX` — context window used
+**글자가 깨져서 네모로 나와요**
+터미널 폰트가 해당 글자를 못 그리는 경우입니다. D2Coding, Cascadia Code, JetBrains
+Mono 같은 폰트로 바꾸거나, 막대 문양을 `#`/`-` 로 바꾸세요.
 
-**This is the one people misread, so: it is not a time limit and not a billing
-number.** The context window is how much of the conversation the model can see
-at once. Every message you send, every file that gets read, and every tool
-result piles into it. At 100% Claude Code compacts the conversation — it
-summarizes the older parts to make room, and detail gets lost in the process.
+**색이 안 나와요**
+`NO_COLOR` 환경변수가 설정돼 있는지 확인하세요. 일부 구형 터미널은 256색을
+지원하지 않습니다.
 
-`CTX` is therefore **per session**. A fresh terminal starts at 0%. Two terminals
-showing different numbers is not a bug; they are different conversations. Watch
-it when you are deep into a long task: crossing into amber is a good moment to
-finish the current thread rather than start a new subtask.
+**5H가 `--%` 로만 나와요**
+Claude.ai 구독 플랜에서만 사용량이 내려옵니다. API 키로 쓰는 경우에는 값이
+오지 않습니다.
 
-### `5H` — five-hour usage limit
+**마스코트가 안 보여요**
+훅이 등록된 뒤 **턴이 한 번 끝나야** 나타납니다. 질문을 하나 던져 보세요. 그래도
+없으면 `settings.json` 의 `hooks` 에 `mascot-hook` 항목 3개가 있는지 확인하세요.
 
-Percentage of your rolling five-hour usage allowance consumed. Unlike `CTX`,
-this is **account-wide** — every terminal you have open draws from the same
-pool. It only appears for Claude.ai subscription plans, and only after some
-session on the machine has received an API response.
-
-The dim `2h05m` after the percentage is a **countdown to the window reset** —
-when it hits zero, the allowance starts over. It is computed locally from the
-`resets_at` timestamp already in the payload, so it costs nothing, makes no
-network calls, and is always current even when the percentage itself is a
-cached snapshot.
-
-### `7D` — seven-day usage limit (off by default)
-
-The weekly allowance, same shape as `5H`. It is off by default to keep the line
-short. Turn it on by editing one line near the top of the script:
+**직접 확인해 보고 싶어요**
 
 ```sh
-SHOW_SEVEN_DAY=1        # statusline.sh
-```
-```powershell
-$ShowSevenDay = $true   # statusline.ps1
+echo '{"workspace":{"current_dir":"/tmp"},"model":{"display_name":"Opus 5"},"context_window":{"used_percentage":42}}' | sh ~/.claude/statusline.sh
 ```
 
-### Meter colors and markers
+한 줄이 출력되면 정상입니다.
 
-| State | Meaning |
+---
+---
+
+# 각 항목 설명
+
+## DIR — 프로젝트 폴더
+
+지금 작업 중인 저장소의 **루트 폴더 이름**입니다. 전체 경로가 아니라 프로젝트
+이름만 보여줍니다. 하위 폴더 깊숙이 들어가 있어도 이름이 그대로 유지되는 쪽이
+여러 터미널을 구분하는 데 낫기 때문입니다. 32자가 넘으면 앞을 자르고 뒤를 남깁니다.
+
+git 저장소가 아니면 그냥 현재 폴더 이름이 나옵니다.
+
+## GIT — 브랜치
+
+현재 브랜치입니다. `main`과 `master`는 **보라색**, 나머지는 **하늘색**으로 칠해서
+기본 브랜치에 그냥 커밋하려는 상황을 눈치챌 수 있게 했습니다.
+
+브랜치가 아직 없거나 git 저장소가 아니면 `-` 로 표시됩니다.
+
+## MODEL — 지금 쓰는 모델
+
+Claude Code가 알려주는 모델 이름을 그대로 보여줍니다.
+
+## CTX — 컨텍스트 사용량
+
+지금 세션이 컨텍스트 창을 얼마나 먹었는지입니다. **이 값만 실시간입니다.** 100%에
+가까워지면 오래된 대화가 밀려나기 시작하므로, 긴 작업 중에 이 숫자를 보고 정리할
+시점을 잡으면 됩니다.
+
+## 5H — 5시간 사용 한도
+
+5시간 단위로 갱신되는 사용 한도입니다. CTX와 달리 **계정 전체 기준**이라 열어 둔
+모든 터미널이 같은 한도를 나눠 씁니다. Claude.ai 구독 플랜에서만 표시됩니다.
+
+퍼센트 뒤의 흐린 `1h49m` 은 **한도가 초기화되기까지 남은 시간**입니다. payload에
+이미 들어 있는 값으로 로컬에서 계산하기 때문에 네트워크 호출도 토큰 소모도 없고,
+퍼센트가 오래된 값일 때조차 항상 정확합니다.
+
+## 7D — 주간 한도 (기본 꺼짐)
+
+7일 단위 한도입니다. 줄이 길어져서 기본은 꺼져 있습니다.
+
+## 게이지 색
+
+| 색 | 뜻 |
 | --- | --- |
-| green | under 60% |
-| amber | 60% and above |
-| red | 90% and above |
-| `--%` with a dim empty bar | value not reported yet |
-| `~` before the number, dimmed | stale snapshot — see below |
+| 초록 | 60% 미만 |
+| 주황 | 60% 이상 |
+| 빨강 | 90% 이상 |
+| `--%` 흐린 빈 막대 | 아직 값이 안 내려옴 |
+| `~11%` 흐리게 | 오래된 값 (아래 설명) |
 
-The bar is always ten cells wide whether or not a value is present, so the line
-never jitters as numbers appear.
+막대는 값이 있든 없든 항상 열 칸이라 숫자가 나타날 때 줄이 흔들리지 않습니다.
 
 ---
 
-## How fresh are the usage numbers?
+# 마스코트 뽑기
 
-Short answer: **`CTX` is current, `5H` and `7D` are a snapshot that lags.**
+줄 맨 뒤의 얼굴은 **하루에 한 번 뽑는 그날의 마스코트**입니다.
 
-`refreshInterval: 5` makes Claude Code re-run the script every five seconds, and
-the script re-renders every time. But re-rendering is not re-measuring. The
-script only ever draws the numbers Claude Code hands it on stdin, and it has no
-way to query the API itself. Claude Code refreshes `rate_limits` when the
-session receives an API response — so between your messages, the number is
-frozen at whatever it was when Claude last replied in *that* session.
+## 등급
 
-Logging the payload from four concurrent sessions on one account for two minutes
-makes this concrete:
-
-| session | invocations | `5H` reading | window ends at |
+| 등급 | 확률 | 색 | 얼굴 수 |
 | --- | --- | --- | --- |
-| A | 24 | 9%, never moved | 18:50 — still open |
-| B (actively working) | 30 | 9% → 10% | 18:50 — still open |
-| C | 24 | 11%, never moved | 13:50 — closed 50 min earlier |
-| D | 25 | 9%, never moved | 19:00 **the previous day** |
+| 커먼 | 60% | 흰색 | 6 |
+| 언커먼 | 25% | 초록 | 5 |
+| 레어 | 10% | 하늘색 | 5 |
+| 유니크 | 4% | 보라 | 4 |
+| 레전드 | 1% | 주황 (굵게) | 4 |
 
-Two things fall out of that. The idle sessions re-ran the script two dozen times
-each and their number never moved once, while only the session actually calling
-the API changed — re-running is not re-measuring. And the four sessions reported
-*three different window boundaries*, which is only possible if each is holding
-its own cached snapshot rather than reading shared live state.
+레전드는 100일에 하루쯤 나옵니다.
 
-So both symptoms are expected:
+## 움직입니다
 
-- **`/usage` and the web usage page disagree with the status line.** They ask the
-  server for the value right now. The status line shows the value attached to
-  this session's last API response.
-- **Two terminals show different `5H` values.** Sessions C and D above were
-  quoting windows that had already closed — their numbers were not merely late,
-  they were answers to a question about a different five-hour period.
+얼굴마다 표정이 2장씩 있고, **Claude가 작업하는 동안** 두 장이 번갈아 나옵니다.
+눈을 깜빡이거나 반짝임이 바뀌는 정도라 요란하지 않습니다. 작업이 끝나면 첫 번째
+표정으로 가만히 멈춥니다.
 
-### What the status line does about it
-
-The script cannot ask the API for the live value — it has no credentials and no
-endpoint for that, and polling would spend the very allowance it is measuring.
-But the drift between terminals is fixable without any of that, because **at
-least one session is always holding the newest snapshot: the one you are
-actively working in.**
-
-So sessions share what they see. On every render, each session writes the
-rate-limit snapshot it was handed to a small file under
-`~/.claude/statusline-cache/`, and displays the best snapshot *any* session has
-published: the newest window wins, and within the same window the highest
-reading wins (account usage only rises while a window is open). The moment you
-send a message in one terminal, every other terminal converges to that value on
-its next 5-second refresh. No API calls, no tokens — just a ~40-byte file.
-
-This is also why a freshly opened terminal shows a real `5H` value immediately
-instead of `--%`: it inherits the account state from its neighbors.
-
-Two markers remain for what sharing cannot fix:
-
-- `~11%` dimmed — even the freshest snapshot anyone holds is from a window that
-  already closed (every session has been idle past a reset). Send any message
-  and it recovers.
-- Sessions quoting the same open window can still sit a point apart for a
-  moment (A and B above); nothing in the payload says which is newer, and the
-  higher one wins by the ordering rule.
-
-The countdown never has either problem — it ticks locally regardless of how old
-the percentage is.
-
-`CTX` does not have this problem — it is computed from the session's own
-transcript, so it is accurate the moment it is drawn.
-
----
-
-## Customization
-
-Everything worth changing sits in a labeled block at the top of each script.
-
-**Bar characters.**
-
-```sh
-BAR_FULL='◼'    BAR_EMPTY='◻'    BAR_GAP=''    BAR_PAD=''      # statusline.sh
 ```
-```powershell
-$BarFull = [string][char]0x25FC                                 # statusline.ps1
-$BarEmpty = [string][char]0x25FB
+작업 중   （・ω・） ↔ （－ω－）      눈 깜빡임
+작업 끝   （・ω・）                  고정
+실패      （；へ：）                  빨간색
 ```
 
-The default cells are U+25FC/U+25FB, the black and white medium squares. The
-glyph is close to an actual square, carries its own margins — so cells set
-flush against each other still separate into ten distinct blocks with a
-hairline gap — and the empty cell is drawn as an outlined box, a visible
-border rather than a shaded fill. How square it really looks, how thick the
-outline is and how wide the gap renders is ultimately the font's decision.
+두 표정은 글자 수가 같아서 줄이 흔들리지 않습니다.
 
-Other pairings worth trying: `▮`/`▯` (U+25AE / U+25AF) for taller rectangles,
-`▉`/`░` (U+2589 / U+2591) for chunky blocks with shaded empties, `█`/`░`
-(U+2588 / U+2591) for a continuous bar with no gaps, `●`/`○` (U+25CF / U+25CB)
-for dots, or plain `#`/`-` if your font is limited.
+## 하루 한 번, 조작할 수 없습니다
 
-The PowerShell version builds its glyphs from code points on purpose, so the
-file survives being saved in any encoding.
+오늘의 얼굴은 **어디에도 저장되지 않습니다.** 파일에서 읽어 오는 게 아니라
+매번 이렇게 계산합니다.
 
-**Actual glyph size** is your terminal's font size — no escape code can change
-it for part of a line. If the bar still reads small, raise the terminal font
-size, or pick a font that draws block elements to the full cell box (most
-programming fonts do; some proportional-ish fonts leave a margin).
-
-**Thresholds.** `WARN_AT` / `CRIT_AT` (`$WarnAt` / `$CritAt`), default 60 and 90.
-
-**Bar width.** `BAR_LEN` / `$BarLength`, default 10.
-
-**Project name length.** `DIR_MAX` / `$DirMax`, default 32.
-
-**Colors.** Plain ANSI SGR codes. The meters use 256-color values —
-`38;5;46` neon green, `38;5;214` amber, `38;5;203` red. The entire meter —
-brackets, filled cells and the outlines of empty cells — takes the color of the
-current load tier, so each gauge reads as one solid colored frame. On a
-terminal without
-256-color support, swap those for `96`, `93` and `91`. The rest are basic
-codes: `97` project, `95` main branch, `96` other branches, `93` model, `90` dim.
-
-**No color at all.** Set `NO_COLOR=1` in the environment.
-
-**Cache location.** Cross-session snapshots live in
-`~/.claude/statusline-cache/` (one ~40-byte file per session, swept after 48
-hours of inactivity). Set `STATUSLINE_CACHE_DIR` to move it.
-
----
-
-## How it works
-
-Claude Code runs the configured command on every session event and, with
-`refreshInterval` set, every N seconds as well. It passes a JSON payload on
-stdin describing the session. The script pulls out the fields it needs and
-writes exactly one line to stdout; whatever it prints becomes the status line.
-
-Because that output is the status line, the script sends nothing to stderr and
-swallows its own errors. A broken status line should degrade to `-` and `--%`,
-never vanish and never spray error text across your terminal.
-
-The shell version uses `jq` when it is installed and falls back to `sed` for the
-few flat fields it needs, so it has no hard dependencies on a stock macOS or
-Linux box.
-
----
-
-## Troubleshooting
-
-**The status line does not appear.** Confirm the path in `settings.json` points
-at a file that exists, then run the script by hand:
-
-```sh
-echo '{"workspace":{"current_dir":"/tmp"},"model":{"display_name":"Opus 5"},"context_window":{"used_percentage":42},"rate_limits":{"five_hour":{"used_percentage":63}}}' | sh ~/.claude/statusline.sh
+```
+오늘의 얼굴 = HMAC-SHA256(이 컴퓨터의 비밀키, 오늘 날짜)
 ```
 
-**`5H` stays at `--%`.** Rate limits are only reported on Claude.ai subscription
-plans, and only after the session's first API response. Send a message.
+비밀키는 설치 후 첫 턴이 끝날 때 난수로 한 번 만들어지고
+(`~/.claude/statusline-cache/.gacha-key`), 그 뒤로는 건드리지 않습니다.
 
-**Boxes or question marks instead of bars.** The terminal font has no glyph for
-`◼`/`◻`. Use a font with wider Unicode coverage, or switch the bar characters
-to `#`/`-`.
+이 방식이라 이런 일들이 **전부 통하지 않습니다.**
 
-**Colors show up as literal `[38;5;46m` text.** The terminal is not
-interpreting ANSI codes. Set `NO_COLOR=1` as a fallback.
+| 시도 | 결과 |
+| --- | --- |
+| 캐시 파일을 고쳐서 레전드로 바꾸기 | 얼굴을 파일에서 읽지 않으므로 무의미 |
+| 캐시 파일을 지우고 다시 뽑기 | 날짜가 같으면 계산 결과도 같음 |
+| 상태 파일에 등급을 써넣기 | 등급은 그 파일에서 읽지 않음 |
+| 하루에 여러 번 뽑기 | 입력이 날짜라 그날은 몇 번을 해도 같은 얼굴 |
+| 시계를 되돌리기 | 되돌린 날짜의 얼굴이 나올 뿐, 원래 날짜로 오면 그대로 |
+| 원하는 등급이 나오게 계산하기 | HMAC-SHA256을 역산해야 함 |
 
-**Meter colors look wrong but the rest is fine.** The terminal is 16-color only.
-Replace the three 256-color meter codes with `96`, `93`, `91`.
+날짜가 바뀌면 자동으로 새 얼굴이 뽑힙니다. 기다리는 것 말고는 방법이 없습니다.
 
-**`bad interpreter` on Linux after cloning on Windows.** The file picked up CRLF
-line endings. `.gitattributes` forces LF for `*.sh`, so re-clone or run
-`dos2unix ~/.claude/statusline.sh`.
-
----
-
-## Contributing
-
-Issues and pull requests are welcome. If you change one implementation, change
-the other to match — the two scripts are expected to produce identical output
-for the same input, and that is the main thing worth reviewing.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+**한 가지 솔직하게** — 비밀키 파일을 직접 지우면 새 키가 만들어지고 그날 얼굴도
+바뀝니다. 내 컴퓨터의 내 파일이라 이것까지 막을 방법은 없습니다. 다만 그렇게 해도
+확률은 그대로라서 레전드가 나올 가능성은 여전히 1%이고, 하루치 얼굴 하나를 다시
+굴리려고 할 만한 일은 아닙니다.
 
 ---
 
-# 한국어
+# 사용량 숫자는 실시간인가
 
-Claude Code용 크로스 플랫폼 상태라인입니다. Windows(PowerShell, cmd), macOS,
-Linux, WSL, Git Bash에서 모두 같은 모양으로 동작합니다.
+**CTX는 실시간이고, 5H와 7D는 시차가 있습니다.**
 
-설치는 위 **Install** 항목을 그대로 따르면 됩니다. 플러그인으로 설치하는 경우
-Claude Code 플러그인은 메인 상태라인을 직접 등록할 수 없기 때문에, 같이 들어 있는
-`/statusline-install` 커맨드가 스크립트 복사와 `settings.json` 병합을 대신
-처리합니다. 기존 설정은 건드리지 않고 `statusLine` 항목만 추가하며, 원본은
-`settings.json.bak`으로 백업합니다.
+`refreshInterval: 5` 설정으로 5초마다 스크립트가 다시 실행되지만, Claude Code가
+넘겨주는 사용량 값은 **그 세션이 마지막으로 API 응답을 받은 시점에 멈춰 있습니다.**
+가만히 열어만 둔 터미널은 그때 값을 계속 들고 있어서, 터미널마다 다른 숫자를
+보여주고 웹 사용량 페이지와도 어긋납니다.
 
-## 각 항목이 뜻하는 것
+## 이 스크립트가 하는 일
 
-**DIR** — 지금 작업 중인 저장소의 루트 폴더 이름입니다. 전체 경로가 아니라 프로젝트
-이름만 보여줍니다. 하위 폴더 깊숙이 들어가 있어도 프로젝트 이름이 그대로 유지되는
-쪽이 세션을 구분하는 데 유용하기 때문입니다. 32자를 넘으면 앞을 자르고 뒤를
-남깁니다.
+세션마다 자기가 받은 값을 `~/.claude/statusline-cache/` 에 적어 두고, 그릴 때는
+**모든 세션이 적어 둔 값 중 가장 최신 것**을 씁니다. 같은 시간대라면 그중 가장 높은
+값을 택합니다. 사용량은 창이 열려 있는 동안 오르기만 하기 때문입니다.
 
-**GIT** — 현재 브랜치입니다. `main`과 `master`는 **보라색**, 나머지 브랜치는
-**하늘색**으로 표시해서 기본 브랜치에 커밋하려는 상황을 눈치챌 수 있게 했습니다.
+덕분에 여러 터미널을 띄워 놓아도 전부 같은 숫자를 보여주고, 방금 작업한 창의
+최신 값이 나머지 창에도 바로 반영됩니다.
 
-**MODEL** — 현재 모델 이름입니다.
+이미 끝난 창의 값이면 `~11%` 처럼 물결표를 붙이고 흐리게 칠합니다. 남은 시간
+카운트다운은 로컬 시계로 계산하므로 이 문제와 무관하게 항상 정확합니다.
 
-**CTX** — **컨텍스트 사용률입니다. 시간 제한도 요금도 아닙니다.** 컨텍스트 윈도우는
-모델이 한 번에 볼 수 있는 대화의 총량입니다. 주고받은 메시지, 읽어들인 파일, 도구
-실행 결과가 전부 여기에 쌓입니다. 100%에 도달하면 Claude Code가 오래된 대화를
-요약(compact)해서 자리를 만드는데, 이 과정에서 세부 내용이 사라집니다.
+---
 
-그래서 CTX는 **세션마다 완전히 별개**입니다. 새 터미널을 열면 0%에서 시작하고, 두
-터미널의 숫자가 다른 건 버그가 아니라 서로 다른 대화이기 때문입니다. 긴 작업 중에
-앰버 색으로 넘어가면 새 갈래를 시작하기보다 지금 하던 흐름을 마무리하는 편이 좋다는
-신호로 보시면 됩니다.
+# 어떻게 동작하나
 
-**5H** — 5시간 롤링 사용 한도입니다. CTX와 달리 **계정 전체 기준**이라 열어둔 모든
-터미널이 같은 한도를 나눠 씁니다. Claude.ai 구독 플랜에서만 표시됩니다.
+Claude Code는 상태라인 스크립트에 세션 정보를 JSON으로 넘겨주고, 스크립트가
+출력한 **한 줄**을 그대로 표시합니다.
 
-퍼센트 뒤의 흐린 `2h05m`는 **창이 리셋되기까지 남은 시간**입니다. 0이 되면 허용량이
-새로 시작됩니다. payload에 이미 들어 있는 `resets_at`으로 로컬에서 계산하는 값이라
-네트워크 호출도 토큰 소모도 없고, 퍼센트가 오래된 스냅샷일 때조차 항상 정확하게
-흘러갑니다.
+```
+Claude Code ──JSON──> statusline.ps1 / .sh ──한 줄──> 화면
+```
 
-**7D** — 주간(7일) 사용 한도입니다. 줄이 길어져서 기본은 꺼져 있고, 스크립트 위쪽의
-`SHOW_SEVEN_DAY=1`(sh) 또는 `$ShowSevenDay = $true`(PowerShell) 한 줄만 고치면
-켜집니다.
+마스코트는 조금 다릅니다. Claude Code는 "지금 작업 중인지"를 상태라인에 알려주지
+않기 때문에, 훅 3개가 그 상태를 파일에 적어 두고 상태라인이 읽어 갑니다.
 
-**색상** — 60% 미만은 형광 초록, 60% 이상은 앰버, 90% 이상은 빨강입니다. 대괄호와
-빈 칸의 테두리까지 게이지 전체가 현재 구간 색 하나로 통일됩니다. 값이 아직
-없으면 `--%`로 표시하고, 오래된 값이면 `~11%`처럼 물결표를 붙이고 흐리게 처리합니다.
+| 훅 | 언제 | 적는 값 |
+| --- | --- | --- |
+| `UserPromptSubmit` | 질문을 보낼 때 | `working` |
+| `Stop` | 답이 끝났을 때 | `done` |
+| `StopFailure` | 실패했을 때 | `error` |
 
-## 사용량 게이지는 실시간인가?
+훅을 설치하지 않으면 이 파일이 아예 생기지 않고, 마스코트도 나오지 않습니다.
+상태라인은 마스코트가 없던 때와 똑같이 그려집니다.
 
-**CTX는 실시간이고, 5H와 7D는 시차가 있는 스냅샷입니다.**
+쓰는 파일은 전부 `~/.claude/statusline-cache/` 안에 있고, 이틀 넘게 손대지 않은
+것은 자동으로 지웁니다.
 
-`refreshInterval: 5` 설정 때문에 Claude Code가 5초마다 스크립트를 다시 실행하고
-화면도 다시 그립니다. 하지만 다시 그리는 것과 다시 재는 것은 다릅니다. 스크립트는
-Claude Code가 stdin으로 건네준 숫자를 그릴 뿐이고, 직접 API에 사용량을 물어볼 방법이
-없습니다. `rate_limits` 값은 **해당 세션이 API 응답을 받을 때** 갱신되므로, 메시지를
-주고받지 않는 동안에는 마지막 응답 시점의 값에 멈춰 있습니다.
+---
 
-같은 계정에서 동시에 돌아가는 세션 네 개의 payload를 2분간 기록해 보면 분명해집니다.
+# 라이선스
 
-| 세션 | 실행 횟수 | `5H` 값 | 창 종료 시각 |
-| --- | --- | --- | --- |
-| A | 24회 | 9%, 한 번도 안 바뀜 | 18:50 — 아직 열려 있음 |
-| B (작업 중) | 30회 | 9% → 10% | 18:50 — 아직 열려 있음 |
-| C | 24회 | 11%, 한 번도 안 바뀜 | 13:50 — 50분 전에 닫힘 |
-| D | 25회 | 9%, 한 번도 안 바뀜 | **전날** 19:00 |
-
-두 가지가 드러납니다. 놀고 있던 세션들은 스크립트를 스무 번 넘게 다시 실행했는데도
-숫자가 한 번도 움직이지 않았고, 실제로 API를 호출하던 세션만 값이 바뀌었습니다.
-**다시 그리는 것은 다시 재는 것이 아닙니다.** 그리고 네 세션이 보고한 창 종료 시각이
-**서로 다른 세 가지**였습니다. 각자 자기 스냅샷을 들고 있지 않다면 나올 수 없는
-결과입니다.
-
-그래서 두 현상 모두 정상입니다.
-
-- **`/usage`나 웹 사용량 페이지와 다른 이유** — 그쪽은 서버에 지금 값을 물어봅니다.
-  상태라인은 이 세션이 마지막으로 받은 응답에 붙어 있던 값을 보여줍니다.
-- **터미널마다 다른 이유** — 위 표의 C와 D는 이미 닫힌 창의 값을 말하고 있었습니다.
-  단순히 늦은 게 아니라, 아예 다른 5시간 구간에 대한 답이었습니다.
-
-### 상태라인이 이 문제를 다루는 방법
-
-스크립트가 API에 직접 실시간 값을 물어볼 수는 없습니다. 자격 증명도 공개 엔드포인트도
-없고, 폴링은 측정하려는 허용량을 측정 때문에 소모하는 구조가 됩니다. 하지만 터미널
-간의 어긋남은 그것 없이도 고칠 수 있습니다. **적어도 하나의 세션은 항상 최신 스냅샷을
-들고 있기 때문입니다. 바로 지금 작업 중인 세션입니다.**
-
-그래서 세션끼리 본 것을 공유합니다. 매 렌더링마다 각 세션은 자기가 받은 rate-limit
-스냅샷을 `~/.claude/statusline-cache/`의 작은 파일에 기록하고, 표시할 때는 **모든
-세션이 발행한 것 중 가장 좋은 스냅샷**을 고릅니다. 더 새로운 창이 이기고, 같은
-창이면 더 높은 값이 이깁니다(창이 열려 있는 동안 계정 사용량은 줄지 않으므로). 한
-터미널에서 메시지를 보내는 순간, 나머지 터미널들은 다음 5초 새로고침에서 그 값으로
-수렴합니다. API 호출 0회, 토큰 0개, 40바이트짜리 파일이 전부입니다.
-
-새로 연 터미널이 `--%` 대신 곧바로 실제 5H 값을 보여주는 것도 이 덕분입니다. 옆
-세션들이 발행해 둔 계정 상태를 물려받기 때문입니다.
-
-공유로도 못 고치는 경우를 위한 표시 두 가지는 남아 있습니다.
-
-- `~11%` 흐림 — 모든 세션이 리셋 시각을 넘겨 놀고 있어서, 가장 최신 스냅샷조차 이미
-  닫힌 창의 값일 때입니다. 아무 메시지나 보내면 회복됩니다.
-- 같은 열린 창을 인용하는 세션들이 잠깐 1%p 어긋날 수 있습니다(위 표의 A와 B).
-  payload에 어느 쪽이 더 최신인지 알려주는 정보가 없어서, 정렬 규칙상 높은 쪽이
-  이깁니다.
-
-카운트다운은 어느 경우에도 영향받지 않습니다. 퍼센트가 얼마나 오래됐든 로컬 시계로
-정확히 흘러갑니다.
-
-CTX에는 이 문제가 없습니다. 세션 자기 기록에서 계산하는 값이라 그리는 순간 정확합니다.
-
-## 바꾸고 싶다면
-
-스크립트 맨 위 블록만 고치면 됩니다. 막대 문양(`BAR_FULL`/`BAR_EMPTY`), 칸 사이
-간격(`BAR_GAP`), 막대 길이(`BAR_LEN`), 색이 바뀌는 기준(`WARN_AT`/`CRIT_AT`),
-프로젝트 이름 최대 길이(`DIR_MAX`), 주간 게이지 표시 여부가 전부 거기 모여 있습니다.
-`NO_COLOR=1` 환경변수를 주면 색 없이 출력됩니다.
-
-기본 채움 문자는 정사각형이 아니라 U+2589(왼쪽 7/8 블록)입니다. 셀 높이를 꽉 채우면서
-너비는 7/8만 차지하기 때문에, 칸을 서로 붙여 놓아도 남는 1/8이 실선 같은 얇은 틈으로
-보입니다. 구분 문자를 넣지 않고도 열 칸이 또렷하게 나뉘어 보이는 이유입니다. 반면
-`■`(U+25A0) 같은 진짜 정사각형은 셀 **너비**에 맞춰 그려지는데 터미널 셀은 높이가
-너비의 두 배쯤이라, 블록 문자 옆에 두면 작아 보입니다.
-
-글리프의 실제 크기는 터미널 폰트 크기입니다. 한 줄의 일부만 크게 만드는 이스케이프
-코드는 존재하지 않으므로, 더 크게 보고 싶으면 터미널 폰트 크기를 올리시면 됩니다.
+MIT
