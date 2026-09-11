@@ -20,16 +20,54 @@ BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
+STATUSLINE_VERSION='1.3.0'
+
+# Run with no arguments (the way Claude Code calls it) to print the status line.
+#   --version   print the version and exit
+#   --today     print today's mascot draw and exit
+#   --help      print a short usage summary and exit
+MASCOT_ONLY=0
+case "${1:-}" in
+    --version|-v)
+        printf 'claude-code-statusline-astro %s\n' "$STATUSLINE_VERSION"
+        exit 0
+        ;;
+    --help|-h)
+        printf 'claude-code-statusline-astro %s\n\n' "$STATUSLINE_VERSION"
+        printf '  statusline.sh            Claude Code calls this with session JSON on stdin\n'
+        printf '  statusline.sh --today    show the mascot drawn for today\n'
+        printf '  statusline.sh --version  show the version\n'
+        printf '  statusline.sh --help     this text\n\n'
+        printf 'Settings live at the top of this file. Update by re-running install.sh.\n'
+        exit 0
+        ;;
+    --today)
+        MASCOT_ONLY=1
+        ;;
+esac
+
 SHOW_SEVEN_DAY=0  # set to 1 to also show the 7-day (weekly) meter
 
 # Mascot: a kaomoji at the end of the line reflecting what the session is doing.
 # It needs the companion hook (mascot-hook.sh) to know the state - without it the
 # state file never appears and the mascot simply stays hidden.
 SHOW_MASCOT=1
+# The mascot speaks a line when a turn finishes; set 0 for the face alone.
+SHOW_MASCOT_TALK=1
 # Rarity odds in per-mille, lowest rarity first. They must total 1000 and line up
 # with MASCOT_TIERS below.
-MASCOT_ODDS='600 250 100 40 10'
+MASCOT_ODDS='400 350 180 60 10'
 MASCOT_TIERS='common uncommon rare unique legend'
+
+# Maintainer tier. A key whose SHA-256 is listed here also rolls 'dev' faces;
+# every other key never sees them. Only the hash is published, so the list gives
+# nothing away - matching it would mean finding a preimage of SHA-256. Add your
+# own hash to claim the tier on your machine: SHA-256 of the key file's text,
+# trimmed of whitespace, hashed as UTF-8. The README gives the exact command.
+DEV_KEY_HASHES='837cbfd9a3f7b0c8887e1654f8bed41800fd80a4cd4a969a14b1a5095d6fa31a'
+# Per-mille odds of the dev tier; the ordinary tiers share what is left, keeping
+# their ratio to each other.
+DEV_ODDS=100
 
 # Meters turn amber at WARN_AT and red at CRIT_AT.
 WARN_AT=60
@@ -54,6 +92,7 @@ if [ -n "${NO_COLOR:-}" ]; then
     C_RARE=''
     C_UNIQUE=''
     C_LEGEND=''
+    C_DEV=''
 else
     ESC=$(printf '\033')
     RESET="${ESC}[0m"
@@ -73,9 +112,11 @@ else
     C_RARE="${ESC}[38;5;117m"       # sky blue
     C_UNIQUE="${ESC}[38;5;141m"     # purple
     C_LEGEND="${ESC}[1;38;5;208m"   # orange, bold
+    C_DEV="${ESC}[1;38;5;51m"       # cyan, bold - maintainer only
 fi
 
-payload=$(cat | tr -d '\n\r')
+payload=''
+[ "$MASCOT_ONLY" -eq 1 ] || payload=$(cat | tr -d '\n\r')
 
 # ---- payload fields --------------------------------------------------------
 # jq handles the payload properly when present; the sed fallback covers the
@@ -328,29 +369,42 @@ meter() {
 }
 
 # ---- mascot ----------------------------------------------------------------
-# The face is the day's draw. It is never stored and it is never rolled here:
-# it is derived from HMAC-SHA256(machine key, today's date). The same day
-# therefore always yields the same face however often this script runs, and no
-# amount of editing or deleting files changes it - forcing a legend would mean
-# inverting HMAC-SHA256. The key is created once by mascot-hook.sh.
+# The face is the day's draw, derived from HMAC-SHA256(machine key, date) and
+# never stored, so it is fixed for the whole day and identical on every redraw.
+# The key is created once by mascot-hook.sh.
 #
-# Each face carries two frames of one expression, always the same width so the
-# line never jitters. While a turn runs the frames alternate on every refresh;
-# once the turn is done the face settles on its first frame.
+# Each face carries frames of one expression, all the same width so the line
+# never jitters. The frames advance while a turn runs and settle on the first
+# one when it ends. Legend and dev also cycle their color on every refresh.
 #
-# Faces are separated by '|' and their two frames by '#'; no face contains
-# either character, so cut can index them.
+# Faces are separated by '|' and their frames by '#'; no face contains either
+# character, so cut can index them. Spoken lines use the same convention.
 KAO_ERROR='（；へ：）#（；ω；）'
-KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´－ω－）|（・_・）#（－_－）|（ ˘ω˘ ）#（ ˘ᴗ˘ ）|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）'
-KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡－ω－｡）|（^▽^）#（^ω^）|（・ㅂ・）#（－ㅂ－）|（◕‿◕）#（◠‿◠）'
-KAO_RARE='（๑˃ᴗ˂）✧#（๑˃ᴗ˂）✦|ヽ（•‿•）ノ#ヾ（•‿•）ﾉ|（★ω★）#（☆ω☆）|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/'
-KAO_UNIQUE='（☆▽☆）#（★▽★）|ヽ（°〇°）ﾉ#ヾ（°Д°）ﾉ|（ﾉ◕ヮ◕）ﾉ#（ヽ◕ヮ◕）ヽ|（♡‿♡）#（♥‿♥）'
-KAO_LEGEND='✧（◕ᴗ◕）✧#✦（◕ᴗ◕）✦|ヽ（♡‿♡）ノ#ヾ（♥‿♥）ﾉ|（ﾉ≧∇≦）ﾉ#（ﾉ≧▽≦）ﾉ|♪（๑ᴖ◡ᴖ๑）♪#♫（๑ᴖ◡ᴖ๑）♫'
+KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´－ω－）|（・_・）#（－_－）|（ ˘ω˘ ）#（ ˘ᴗ˘ ）|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（＞ω＜）#（＞ᴗ＜）|（・ｖ・）#（－ｖ－）|（^_^）#（^ω^）|（・◡・）#（－◡－）|（・ツ・）#（－ツ－）|（¬ω¬）#（¬_¬）'
+KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡－ω－｡）|（^▽^）#（^ᴗ^）|（・ㅂ・）#（－ㅂ－）|（◕‿◕）#（◠‿◠）|（๑•ᴗ•๑）#（๑-ᴗ-๑）|（≧ω≦）#（≧ᴗ≦）|（･ω<）#（･ᴗ<）|（。◕‿◕。）#（。◠‿◠。）|（＾▽＾）#（＾ᴗ＾）|（･◡･）#（･ᴗ･）|（≖‿≖）#（≖_≖）'
+KAO_RARE='（๑˃ᴗ˂）✧#（๑˃ᴗ˂）✦|ヽ（•‿•）ノ#ヾ（•‿•）ﾉ|（★ω★）#（☆ω☆）|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（✧ω✧）#（✦ω✦）|ヽ（◕‿◕）ノ#ヾ（◠‿◠）ﾉ|（๑✧‿✧๑）#（๑✦‿✦๑）|（★‿★）#（☆‿☆）|（≧∇≦）✧#（≧▽≦）✦|ヽ（^ω^）ノ#ヾ（^ᴗ^）ﾉ|（･∀･）✧#（･∀･）✦'
+KAO_UNIQUE='（☆▽☆）#（★▽★）|ヽ（°〇°）ﾉ#ヾ（°Д°）ﾉ|（ﾉ◕ヮ◕）ﾉ#（ヽ◕ヮ◕）ヽ|（♡‿♡）#（♥‿♥）|（ﾉ☆▽☆）ﾉ#（ヽ★▽★）ヽ|（๑♡‿♡๑）#（๑♥‿♥๑）|ヽ（✧∇✧）ノ#ヾ（✦▽✦）ﾉ|（＠◕ᴗ◕＠）#（＠◠ᴗ◠＠）|（ﾉ≧ڡ≦）ﾉ#（ヽ≧ڡ≦）ヽ'
+KAO_LEGEND='✧（◕ᴗ◕）✧#✦（◕ᴗ◕）✦#✧（◕ᴗ◕）✦#✦（◕ᴗ◕）✧|ヽ（♡‿♡）ノ#ヾ（♥‿♥）ﾉ#ヽ（♥‿♥）ノ#ヾ（♡‿♡）ﾉ|（ﾉ≧∇≦）ﾉ#（ﾉ≧▽≦）ﾉ#（ヽ≧∇≦）ヽ#（ヽ≧▽≦）ヽ|♪（๑ᴖ◡ᴖ๑）♪#♫（๑ᴖ◡ᴖ๑）♫#♩（๑ᴖ◡ᴖ๑）♩#♬（๑ᴖ◡ᴖ๑）♬|（✧ᴗ✧）#（✦ᴗ✦）#（★ᴗ★）#（☆ᴗ☆）'
+KAO_DEV='（¬‿¬）#（¬_¬）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜|（◣_◢）#（◢_◣）|ᕙ（⇀‸↼）ᕗ#ᕦ（⇀‸↼）ᕤ'
+
+# What the mascot says once a turn is done. The higher the rarity, the more of
+# an actual sentence it manages.
+TALK_ERROR='앗...|실패했어요...'
+TALK_COMMON='왕!|냥!|뿌!|삐약!|꽥!|음냐'
+TALK_UNCOMMON='왕왕!|다했다!|끝!|됐다!|오케이!|히히'
+TALK_RARE='다 됐어요|끝났어요|완료했어요|해냈어요!|준비 끝!'
+TALK_UNIQUE='작업 완료했어요!|다 끝냈습니다!|깔끔하게 끝냈어요!|확인해 보세요!'
+TALK_LEGEND='요청하신 작업 모두 완료했습니다!|전부 끝냈습니다, 확인 부탁드려요!|작업을 성공적으로 마쳤습니다!'
+TALK_DEV='빌드 통과.|커밋하시죠.|배포 준비 완료.|테스트 전부 초록불.'
 
 MASCOT_TIERS='common uncommon rare unique legend'
 
+# Legend and dev cycle through these instead of taking one fixed color.
+RAINBOW='196 202 208 214 220 190 118 46 48 51 45 39 63 99 129 201'
+
 kao_count() { printf %s "$1" | awk -F'|' '{print NF}'; }
-kao_face() { printf %s "$1" | cut -d'|' -f"$2"; }
+kao_at() { printf %s "$1" | cut -d'|' -f"$2"; }
+kao_frames() { printf %s "$1" | awk -F'#' '{print NF}'; }
 kao_frame() { printf %s "$1" | cut -d'#' -f"$2"; }
 
 # HMAC-SHA256 as hex. openssl is the one that matches the PowerShell version
@@ -366,12 +420,72 @@ gacha_hmac() {
     fi
 }
 
+# Whether this machine's key is one of the maintainer keys. Comparing hashes
+# rather than keys is what lets the list ship in the open.
+is_dev_key() {
+    [ -n "$DEV_KEY_HASHES" ] || return 1
+    _kh=''
+    if command -v sha256sum >/dev/null 2>&1; then
+        _kh=$(printf %s "$1" | sha256sum 2>/dev/null | cut -d' ' -f1)
+    elif command -v shasum >/dev/null 2>&1; then
+        _kh=$(printf %s "$1" | shasum -a 256 2>/dev/null | cut -d' ' -f1)
+    elif command -v openssl >/dev/null 2>&1; then
+        _kh=$(printf %s "$1" | openssl dgst -sha256 2>/dev/null | sed 's/.*= *//')
+    fi
+    [ -n "$_kh" ] || return 1
+    for _dh in $DEV_KEY_HASHES; do
+        [ "$_kh" = "$_dh" ] && return 0
+    done
+    return 1
+}
+
+gacha_pool() {
+    case "$1" in
+        common)   printf %s "$KAO_COMMON" ;;
+        uncommon) printf %s "$KAO_UNCOMMON" ;;
+        rare)     printf %s "$KAO_RARE" ;;
+        unique)   printf %s "$KAO_UNIQUE" ;;
+        legend)   printf %s "$KAO_LEGEND" ;;
+        dev)      printf %s "$KAO_DEV" ;;
+    esac
+}
+
+talk_pool() {
+    case "$1" in
+        common)   printf %s "$TALK_COMMON" ;;
+        uncommon) printf %s "$TALK_UNCOMMON" ;;
+        rare)     printf %s "$TALK_RARE" ;;
+        unique)   printf %s "$TALK_UNIQUE" ;;
+        legend)   printf %s "$TALK_LEGEND" ;;
+        dev)      printf %s "$TALK_DEV" ;;
+    esac
+}
+
+# Tier color. Legend and dev walk the rainbow so the face keeps shifting hue on
+# every refresh; dev walks it backwards, which keeps the two tiers apart.
+tier_color() {
+    case "$1" in
+        legend|dev)
+            [ -n "$RESET" ] || return 0
+            _rn=0
+            for _c in $RAINBOW; do _rn=$(( _rn + 1 )); done
+            _step=1
+            [ "$now" -gt 0 ] && _step=$(( (now / 5) % _rn + 1 ))
+            [ "$1" = dev ] && _step=$(( _rn + 1 - _step ))
+            printf '%s' "${ESC}[1;38;5;$(printf %s "$RAINBOW" | cut -d' ' -f"$_step")m"
+            ;;
+        unique)   printf %s "$C_UNIQUE" ;;
+        rare)     printf %s "$C_RARE" ;;
+        uncommon) printf %s "$C_UNCOMMON" ;;
+        *)        printf %s "$C_COMMON" ;;
+    esac
+}
+
 # Sets GACHA_TIER and GACHA_INDEX for today, or returns 1 when there is no key
 # - which is also what a fresh install looks like before the first turn ends.
 # Two independent 32-bit windows of one HMAC pick the tier and the face.
 gacha_draw() {
-    _key=$(cat "$CACHE_DIR/.gacha-key" 2>/dev/null | tr -d " 	
-")
+    _key=$(cat "$CACHE_DIR/.gacha-key" 2>/dev/null | tr -d " \t\n\r")
     [ -n "$_key" ] || return 1
 
     _today=$(date +%Y%m%d 2>/dev/null)
@@ -384,44 +498,53 @@ gacha_draw() {
     _n1=$(printf '%d' "0x$(printf %s "$_sig" | cut -c1-8)" 2>/dev/null) || return 1
     _n2=$(printf '%d' "0x$(printf %s "$_sig" | cut -c9-16)" 2>/dev/null) || return 1
 
+    # A maintainer key adds the dev tier in front; the ordinary tiers then share
+    # what is left of the 1000, keeping their ratio to each other. Whatever the
+    # rounding leaves over goes to dev, so the odds still total exactly 1000.
+    _tiers=$MASCOT_TIERS
+    _odds=$MASCOT_ODDS
+    if is_dev_key "$_key"; then
+        _scaled=''
+        _used=0
+        for _odd in $MASCOT_ODDS; do
+            _v=$(( _odd * (1000 - DEV_ODDS) / 1000 ))
+            _scaled="$_scaled $_v"
+            _used=$(( _used + _v ))
+        done
+        _tiers="dev $MASCOT_TIERS"
+        _odds="$(( 1000 - _used ))$_scaled"
+    fi
+
     _roll=$(( _n1 % 1000 ))
     _acc=0
     _ti=1
     GACHA_TIER=common
-    for _odd in $MASCOT_ODDS; do
+    for _odd in $_odds; do
         _acc=$(( _acc + _odd ))
         if [ "$_roll" -lt "$_acc" ]; then
-            GACHA_TIER=$(printf %s "$MASCOT_TIERS" | cut -d' ' -f"$_ti")
+            GACHA_TIER=$(printf %s "$_tiers" | cut -d' ' -f"$_ti")
             break
         fi
         _ti=$(( _ti + 1 ))
     done
 
-    _pool=$(gacha_pool "$GACHA_TIER")
-    _kn=$(kao_count "$_pool")
+    _kn=$(kao_count "$(gacha_pool "$GACHA_TIER")")
     [ "$_kn" -gt 0 ] || return 1
     GACHA_INDEX=$(( _n2 % _kn + 1 ))
     return 0
 }
 
-gacha_pool() {
-    case "$1" in
-        common) printf %s "$KAO_COMMON" ;;
-        uncommon) printf %s "$KAO_UNCOMMON" ;;
-        rare) printf %s "$KAO_RARE" ;;
-        unique) printf %s "$KAO_UNIQUE" ;;
-        legend) printf %s "$KAO_LEGEND" ;;
-    esac
-}
-
-gacha_color() {
-    case "$1" in
-        legend)   printf %s "$C_LEGEND" ;;
-        unique)   printf %s "$C_UNIQUE" ;;
-        rare)     printf %s "$C_RARE" ;;
-        uncommon) printf %s "$C_UNCOMMON" ;;
-        *)        printf %s "$C_COMMON" ;;
-    esac
+# Picks the spoken line for a finished turn. Seeded with the timestamp the hook
+# recorded, so the line is stable across redraws but changes with the next turn.
+pick_talk() {
+    [ "$SHOW_MASCOT_TALK" -eq 1 ] || return 0
+    _tp="$1"
+    [ -n "$_tp" ] || return 0
+    _tn=$(kao_count "$_tp")
+    [ "$_tn" -gt 0 ] || return 0
+    _th=$(( ($2 * 1103515245 + 12345) % 2147483648 ))
+    [ "$_th" -lt 0 ] && _th=$(( 0 - _th ))
+    kao_at "$_tp" "$(( _th % _tn + 1 ))"
 }
 
 # Reads the turn state the hooks left for this session and draws the face.
@@ -436,25 +559,61 @@ mascot() {
     _raw=$(cat "$_mf" 2>/dev/null) || return 0
     [ -n "$_raw" ] || return 0
     _state=$(printf %s "$_raw" | awk '{print $1}')
+    _stamp=$(printf %s "$_raw" | awk '{print $2}')
+    case "$_stamp" in ''|*[!0-9]*) _stamp=0 ;; esac
 
     if [ "$_state" = error ]; then
+        _fn=$(kao_frames "$KAO_ERROR")
         _fr=1
-        [ "$now" -gt 0 ] && _fr=$(( (now / 5) % 2 + 1 ))
-        printf '%s' "${C_CRIT}$(kao_frame "$KAO_ERROR" "$_fr")${RESET}"
+        [ "$now" -gt 0 ] && _fr=$(( (now / 5) % _fn + 1 ))
+        _line=$(pick_talk "$TALK_ERROR" "$_stamp")
+        [ -n "$_line" ] && _line=" $_line"
+        printf '%s' "${C_CRIT}$(kao_frame "$KAO_ERROR" "$_fr")${_line}${RESET}"
         return 0
     fi
     [ "$_state" = working ] || [ "$_state" = done ] || return 0
 
     gacha_draw || return 0
-    _face=$(kao_face "$(gacha_pool "$GACHA_TIER")" "$GACHA_INDEX")
+    _face=$(kao_at "$(gacha_pool "$GACHA_TIER")" "$GACHA_INDEX")
     [ -n "$_face" ] || return 0
 
+    _fn=$(kao_frames "$_face")
     _fr=1
     if [ "$_state" = working ] && [ "$now" -gt 0 ]; then
-        _fr=$(( (now / 5) % 2 + 1 ))
+        _fr=$(( (now / 5) % _fn + 1 ))
     fi
-    printf '%s' "$(gacha_color "$GACHA_TIER")$(kao_frame "$_face" "$_fr")${RESET}"
+
+    # The mascot only speaks once the turn is over; mid-turn it just animates.
+    _line=''
+    if [ "$_state" = done ]; then
+        _line=$(pick_talk "$(talk_pool "$GACHA_TIER")" "$_stamp")
+        [ -n "$_line" ] && _line=" $_line"
+    fi
+    printf '%s' "$(tier_color "$GACHA_TIER")$(kao_frame "$_face" "$_fr")${_line}${RESET}"
 }
+# ---- subcommand: --today ---------------------------------------------------
+# Never reads stdin, so it works from a plain prompt.
+if [ "$MASCOT_ONLY" -eq 1 ]; then
+    if gacha_draw; then
+        _f=$(kao_at "$(gacha_pool "$GACHA_TIER")" "$GACHA_INDEX")
+        case "$GACHA_TIER" in
+            common)   _lab='커먼' ;;
+            uncommon) _lab='언커먼' ;;
+            rare)     _lab='레어' ;;
+            unique)   _lab='유니크' ;;
+            legend)   _lab='레전드' ;;
+            dev)      _lab='DEV' ;;
+        esac
+        printf '오늘의 마스코트  %s%s%s  [%s]\n'  "$(tier_color "$GACHA_TIER")" "$(kao_frame "$_f" 1)" "$RESET" "$_lab"
+        printf '표정 %s장         %s\n' "$(kao_frames "$_f")" "$(printf %s "$_f" | tr '#' ' ')"
+        printf '대사              %s\n' "$(talk_pool "$GACHA_TIER" | tr '|' '/')"
+        printf '\n얼굴은 날짜로 정해집니다. 내일 다시 뽑힙니다.\n'
+    else
+        printf '아직 뽑기 전입니다. 턴을 한 번 끝내면 오늘의 마스코트가 정해집니다.\n'
+    fi
+    exit 0
+fi
+
 # ---- output ----------------------------------------------------------------
 SEP="${DIM} | ${RESET}"
 line="${DIM}DIR${RESET} ${C_DIR}${project}${RESET}"
