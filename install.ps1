@@ -64,7 +64,7 @@ if ($null -eq $data) { $data = New-Object PSObject }
 $statusLine = New-Object PSObject
 $statusLine | Add-Member -MemberType NoteProperty -Name 'type' -Value 'command'
 $statusLine | Add-Member -MemberType NoteProperty -Name 'command' -Value $command
-$statusLine | Add-Member -MemberType NoteProperty -Name 'refreshInterval' -Value 5
+$statusLine | Add-Member -MemberType NoteProperty -Name 'refreshInterval' -Value 3
 
 if ($data.PSObject.Properties.Name -contains 'statusLine') {
     $data.statusLine = $statusLine

@@ -46,6 +46,9 @@ $ShowSevenDay = $false  # set to $true to also show the 7-day (weekly) meter
 $ShowMascot = $true
 # The mascot speaks a line when a turn finishes; set $false for the face alone.
 $ShowMascotTalk = $true
+# Seconds per animation step. Claude Code only redraws every refreshInterval,
+# so anything below that value changes nothing - keep the two in step.
+$AnimSecs = 3
 # Rarity odds in per-mille, highest first. They must total 1000.
 $MascotOdds = @{ common = 400; uncommon = 350; rare = 180; unique = 60; legend = 10 }
 
@@ -586,25 +589,48 @@ function Get-GachaDraw {
     return @{ Tier = $tier; Index = $idx }
 }
 
-# Tier color. Legend and dev walk the rainbow so the face keeps shifting hue on
-# every refresh; dev walks it backwards, which keeps the two tiers apart.
+# Flat tier color. Legend and dev do not use this - they get a gradient.
 function Get-TierColor {
     param([string]$Tier)
 
-    if ($Tier -eq 'legend' -or $Tier -eq 'dev') {
-        if ([string]::IsNullOrEmpty($Reset)) { return '' }
-        $n = $RainbowColors.Count
-        $step = 0
-        if ($Now -gt 0 -and $n -gt 0) { $step = [int](($Now / 5) % $n) }
-        if ($Tier -eq 'dev') { $step = ($n - 1) - $step }
-        return "$($Esc)[1;38;5;$($RainbowColors[$step])m"
-    }
     switch ($Tier) {
+        'legend'   { return $CLegend }
+        'dev'      { return $CDev }
         'unique'   { return $CUnique }
         'rare'     { return $CRare }
         'uncommon' { return $CUncommon }
         default    { return $CCommon }
     }
+}
+
+# Paints every character its own color along the rainbow and shifts the whole
+# ramp one step per refresh, so the colors appear to flow across the text. This
+# is what makes legend and dev shimmer instead of just sitting there.
+function Get-GradientText {
+    param([string]$Text)
+
+    if ([string]::IsNullOrEmpty($Reset)) { return $Text }
+    $n = $RainbowColors.Count
+    if ($n -le 0 -or $Text.Length -eq 0) { return $Text }
+
+    $step = 0
+    if ($Now -gt 0) { $step = [int](($Now / $AnimSecs) % $n) }
+
+    $out = ''
+    for ($i = 0; $i -lt $Text.Length; $i++) {
+        $idx = ($step + $i) % $n
+        $out += "$($Esc)[1;38;5;$($RainbowColors[$idx])m$($Text[$i])"
+    }
+    return $out
+}
+
+# Wraps text in the right paint for its tier: the flowing gradient is reserved
+# for legend; every other tier takes one flat color.
+function Write-TierText {
+    param([string]$Tier, [string]$Text)
+
+    if ($Tier -eq 'legend') { return "$(Get-GradientText $Text)$($Reset)" }
+    return "$(Get-TierColor $Tier)$($Text)$($Reset)"
 }
 
 # Picks the spoken line for a finished turn. Seeded with the timestamp the hook
@@ -643,7 +669,7 @@ function Get-Mascot {
 
     if ($state -eq 'error') {
         $frame = 0
-        if ($Now -gt 0) { $frame = [int](($Now / 5) % $KaoError.Count) }
+        if ($Now -gt 0) { $frame = [int](($Now / $AnimSecs) % $KaoError.Count) }
         $out = "$($CCrit)$(New-Kao $KaoError[$frame])"
         if ($ShowMascotTalk -and $TalkError.Count -gt 0) {
             $h = ($stamp * 1103515245 + 12345) % 2147483648
@@ -660,26 +686,25 @@ function Get-Mascot {
     $face = $KaoTable[$draw.Tier][$draw.Index]
     $frame = 0
     if ($working -and $Now -gt 0 -and $face.Count -gt 0) {
-        $frame = [int](($Now / 5) % $face.Count)
+        $frame = [int](($Now / $AnimSecs) % $face.Count)
     }
 
-    $color = Get-TierColor $draw.Tier
-    $out = "$($color)$(New-Kao $face[$frame])"
+    $text = New-Kao $face[$frame]
     # The mascot only speaks once the turn is over; mid-turn it just animates.
     if (-not $working) {
         $talk = Get-Talk $draw.Tier $stamp
-        if ($talk -ne '') { $out += " $($talk)" }
+        if ($talk -ne '') { $text += " $($talk)" }
     }
-    return "$($out)$($Reset)"
+    return (Write-TierText $draw.Tier $text)
 }
 # ---- subcommands -----------------------------------------------------------
-# These never read stdin, so they work from a plain prompt.
+# None of these read stdin, so they work from a plain prompt.
 
 if ($Help) {
     Write-Output "claude-code-statusline-astro $StatuslineVersion"
     Write-Output ''
     Write-Output '  statusline.ps1            Claude Code calls this with session JSON on stdin'
-    Write-Output '  statusline.ps1 -Today     show today''s mascot draw'
+    Write-Output '  statusline.ps1 -Today     show the mascot drawn for today'
     Write-Output '  statusline.ps1 -Version   show the version'
     Write-Output '  statusline.ps1 -Help      this text'
     Write-Output ''
@@ -703,9 +728,11 @@ if ($Today) {
         common = '커먼'; uncommon = '언커먼'; rare = '레어'
         unique = '유니크'; legend = '레전드'; dev = 'DEV'
     }[$draw.Tier]
+
     $frames = @()
     foreach ($f in $face) { $frames += (New-Kao $f) }
-    Write-Output ("오늘의 마스코트  {0}{1}$($Reset)  [{2}]" -f (Get-TierColor $draw.Tier), $frames[0], $label)
+
+    Write-Output ("오늘의 마스코트  {0}  [{1}]" -f (Write-TierText $draw.Tier $frames[0]), $label)
     Write-Output ("표정 {0}장         {1}" -f $frames.Count, ($frames -join '  '))
     $pool = $TalkTable[$draw.Tier]
     if ($null -ne $pool -and $pool.Count -gt 0) {

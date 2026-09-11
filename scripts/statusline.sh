@@ -54,6 +54,9 @@ SHOW_SEVEN_DAY=0  # set to 1 to also show the 7-day (weekly) meter
 SHOW_MASCOT=1
 # The mascot speaks a line when a turn finishes; set 0 for the face alone.
 SHOW_MASCOT_TALK=1
+# Seconds per animation step. Claude Code only redraws every refreshInterval,
+# so anything below that value changes nothing - keep the two in step.
+ANIM_SECS=3
 # Rarity odds in per-mille, lowest rarity first. They must total 1000 and line up
 # with MASCOT_TIERS below.
 MASCOT_ODDS='400 350 180 60 10'
@@ -461,24 +464,35 @@ talk_pool() {
     esac
 }
 
-# Tier color. Legend and dev walk the rainbow so the face keeps shifting hue on
-# every refresh; dev walks it backwards, which keeps the two tiers apart.
+# Flat tier color. Legend uses this only when the gradient is unavailable.
 tier_color() {
     case "$1" in
-        legend|dev)
-            [ -n "$RESET" ] || return 0
-            _rn=0
-            for _c in $RAINBOW; do _rn=$(( _rn + 1 )); done
-            _step=1
-            [ "$now" -gt 0 ] && _step=$(( (now / 5) % _rn + 1 ))
-            [ "$1" = dev ] && _step=$(( _rn + 1 - _step ))
-            printf '%s' "${ESC}[1;38;5;$(printf %s "$RAINBOW" | cut -d' ' -f"$_step")m"
-            ;;
+        legend)   printf %s "$C_LEGEND" ;;
+        dev)      printf %s "$C_DEV" ;;
         unique)   printf %s "$C_UNIQUE" ;;
         rare)     printf %s "$C_RARE" ;;
         uncommon) printf %s "$C_UNCOMMON" ;;
         *)        printf %s "$C_COMMON" ;;
     esac
+}
+
+# The gradient walks character by character, so it needs an awk that counts
+# characters rather than bytes. gawk in a UTF-8 locale does; mawk and busybox
+# awk do not, and there the caller falls back to one flat color.
+awk_counts_chars() {
+    [ "$(printf %s "¬‿" | awk '{print length($0)}' 2>/dev/null)" = 2 ]
+}
+
+# Paints every character its own hue along the rainbow and drifts the whole
+# ramp one step per refresh, so the color appears to flow across the text.
+grad_text() {
+    printf %s "$1" | awk -v off="$2" -v esc="$ESC" -v rb="$RAINBOW" '
+        BEGIN { n = split(rb, C, " ") }
+        {
+            for (i = 1; i <= length($0); i++) {
+                printf "%s[1;38;5;%sm%s", esc, C[((off + i - 1) % n) + 1], substr($0, i, 1)
+            }
+        }'
 }
 
 # Sets GACHA_TIER and GACHA_INDEX for today, or returns 1 when there is no key
@@ -565,7 +579,7 @@ mascot() {
     if [ "$_state" = error ]; then
         _fn=$(kao_frames "$KAO_ERROR")
         _fr=1
-        [ "$now" -gt 0 ] && _fr=$(( (now / 5) % _fn + 1 ))
+        [ "$now" -gt 0 ] && _fr=$(( (now / ANIM_SECS) % _fn + 1 ))
         _line=$(pick_talk "$TALK_ERROR" "$_stamp")
         [ -n "$_line" ] && _line=" $_line"
         printf '%s' "${C_CRIT}$(kao_frame "$KAO_ERROR" "$_fr")${_line}${RESET}"
@@ -580,7 +594,7 @@ mascot() {
     _fn=$(kao_frames "$_face")
     _fr=1
     if [ "$_state" = working ] && [ "$now" -gt 0 ]; then
-        _fr=$(( (now / 5) % _fn + 1 ))
+        _fr=$(( (now / ANIM_SECS) % _fn + 1 ))
     fi
 
     # The mascot only speaks once the turn is over; mid-turn it just animates.
@@ -589,7 +603,17 @@ mascot() {
         _line=$(pick_talk "$(talk_pool "$GACHA_TIER")" "$_stamp")
         [ -n "$_line" ] && _line=" $_line"
     fi
-    printf '%s' "$(tier_color "$GACHA_TIER")$(kao_frame "$_face" "$_fr")${_line}${RESET}"
+    _text="$(kao_frame "$_face" "$_fr")${_line}"
+    # Legend shimmers: every character takes its own hue and the ramp drifts.
+    if [ "$GACHA_TIER" = legend ] && [ -n "$RESET" ] && awk_counts_chars; then
+        _rn=0
+        for _c in $RAINBOW; do _rn=$(( _rn + 1 )); done
+        _off=0
+        [ "$now" -gt 0 ] && _off=$(( (now / ANIM_SECS) % _rn ))
+        printf '%s' "$(grad_text "$_text" "$_off")${RESET}"
+        return 0
+    fi
+    printf '%s' "$(tier_color "$GACHA_TIER")${_text}${RESET}"
 }
 # ---- subcommand: --today ---------------------------------------------------
 # Never reads stdin, so it works from a plain prompt.
@@ -604,7 +628,7 @@ if [ "$MASCOT_ONLY" -eq 1 ]; then
             legend)   _lab='레전드' ;;
             dev)      _lab='DEV' ;;
         esac
-        printf '오늘의 마스코트  %s%s%s  [%s]\n'  "$(tier_color "$GACHA_TIER")" "$(kao_frame "$_f" 1)" "$RESET" "$_lab"
+        printf '오늘의 마스코트  %s%s%s  [%s]\n' "$(tier_color "$GACHA_TIER")" "$(kao_frame "$_f" 1)" "$RESET" "$_lab"
         printf '표정 %s장         %s\n' "$(kao_frames "$_f")" "$(printf %s "$_f" | tr '#' ' ')"
         printf '대사              %s\n' "$(talk_pool "$GACHA_TIER" | tr '|' '/')"
         printf '\n얼굴은 날짜로 정해집니다. 내일 다시 뽑힙니다.\n'

@@ -32,7 +32,7 @@ Do this yourself with tools — do not just print instructions.
    "statusLine": {
      "type": "command",
      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File <HOME>/.claude/statusline.ps1",
-     "refreshInterval": 5
+     "refreshInterval": 3
    }
    ```
 
@@ -41,7 +41,7 @@ Do this yourself with tools — do not just print instructions.
    "statusLine": {
      "type": "command",
      "command": "sh \"<HOME>/.claude/statusline.sh\"",
-     "refreshInterval": 5
+     "refreshInterval": 3
    }
    ```
 
