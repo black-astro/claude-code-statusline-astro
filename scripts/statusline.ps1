@@ -1,9 +1,21 @@
-# claude-code-statusline — Windows PowerShell implementation (5.1 and PowerShell 7+).
+﻿# claude-code-statusline — Windows PowerShell implementation (5.1 and PowerShell 7+).
 #
 # Reads the Claude Code session JSON from stdin and prints exactly one line:
 #   DIR <project> | GIT <branch> | MODEL <name> | CTX [bar] NN% | 5H [bar] NN% 4h10m
 #
 # Set NO_COLOR=1 to strip the ANSI colors.
+
+# Run with no arguments (the way Claude Code calls it) to print the status line.
+#   -Version   print the version and exit
+#   -Today     print today's mascot draw and exit
+#   -Help      print a short usage summary and exit
+param(
+    [switch]$Version,
+    [switch]$Today,
+    [switch]$Help
+)
+
+$StatuslineVersion = '1.3.0'
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -32,8 +44,22 @@ $ShowSevenDay = $false  # set to $true to also show the 7-day (weekly) meter
 # doing. It needs the companion hooks (mascot-hook.ps1) to know the state -
 # without them the state file never appears and the mascot stays hidden.
 $ShowMascot = $true
+# The mascot speaks a line when a turn finishes; set $false for the face alone.
+$ShowMascotTalk = $true
 # Rarity odds in per-mille, highest first. They must total 1000.
-$MascotOdds = @{ common = 600; uncommon = 250; rare = 100; unique = 40; legend = 10 }
+$MascotOdds = @{ common = 400; uncommon = 350; rare = 180; unique = 60; legend = 10 }
+
+# Maintainer tier. A key whose SHA-256 is listed here also rolls 'dev' faces;
+# every other key never sees them. Only the hash is published, so the list gives
+# nothing away - matching it would mean finding a preimage of SHA-256. Add your
+# own hash to claim the tier on your machine: SHA-256 of the key file's text,
+# trimmed of whitespace, hashed as UTF-8. The README gives the exact command.
+$DevKeyHashes = @(
+    '837cbfd9a3f7b0c8887e1654f8bed41800fd80a4cd4a969a14b1a5095d6fa31a'
+)
+# Per-mille odds of the dev tier; the ordinary tiers share what is left, keeping
+# their ratio to each other.
+$DevOdds = 100
 
 # Meters turn amber at WarnAt and red at CritAt.
 $WarnAt = 60
@@ -67,10 +93,12 @@ if ([string]::IsNullOrEmpty($env:NO_COLOR)) {
     $CRare = "$($Esc)[38;5;117m"      # sky blue
     $CUnique = "$($Esc)[38;5;141m"    # purple
     $CLegend = "$($Esc)[1;38;5;208m"  # orange, bold
+    $CDev = "$($Esc)[1;38;5;51m"      # cyan, bold - maintainer only
 } else {
     $Reset = ''; $Dim = ''; $CDir = ''; $CGitMain = ''; $CGitOther = ''
     $CModel = ''; $COk = ''; $CWarn = ''; $CCrit = ''
     $CCommon = ''; $CUncommon = ''; $CRare = ''; $CUnique = ''; $CLegend = ''
+    $CDev = ''
 }
 
 $Now = 0
@@ -186,17 +214,17 @@ function Get-LeafName {
 }
 
 # ---- mascot ---------------------------------------------------------------
-# The face is the day's draw. It is never stored and it is never rolled here:
-# it is derived from HMAC-SHA256(machine key, today's date). The same day
-# therefore always yields the same face however often this script runs, and no
-# amount of editing or deleting files changes it - forcing a legend would mean
-# inverting HMAC-SHA256. The key is created once by mascot-hook.ps1.
+# The face is the day's draw, derived from HMAC-SHA256(machine key, date) and
+# never stored, so it is fixed for the whole day and identical on every redraw.
+# The key is created once by mascot-hook.ps1.
 #
-# Each face carries two frames of one expression, always the same width so the
-# line never jitters. While a turn runs the frames alternate on every refresh;
-# once the turn is done the face settles on its first frame.
+# Each face carries frames of one expression, all the same width so the line
+# never jitters. The frames advance while a turn runs and settle on the first
+# one when it ends. Legend and dev also cycle their color on every refresh.
 #
-# Glyphs are code points, like the bar cells, so the file survives any encoding.
+# Faces are code points, like the bar cells. The spoken lines are literals -
+# Hangul written as code points would be unreadable - so this file carries a
+# UTF-8 BOM to pin its encoding down.
 
 $KaoError = @(
     @(0xFF08, 0xFF1B, 0x3078, 0xFF1A, 0xFF09),
@@ -205,117 +233,264 @@ $KaoError = @(
 
 $MascotTiers = @('common', 'uncommon', 'rare', 'unique', 'legend')
 
+# Legend and dev cycle through these instead of taking one fixed color.
+$RainbowColors = @(196, 202, 208, 214, 220, 190, 118, 46, 48, 51, 45, 39, 63, 99, 129, 201)
+
 # Rarity -> faces -> frames.
 $KaoTable = @{
     common = @(
-        @(  # plain / blink
+        @(  # （・ω・）
             @(0xFF08, 0x30FB, 0x03C9, 0x30FB, 0xFF09),
             @(0xFF08, 0xFF0D, 0x03C9, 0xFF0D, 0xFF09)
         ),
-        @(  # soft / blink
+        @(  # （´･ω･）
             @(0xFF08, 0x00B4, 0xFF65, 0x03C9, 0xFF65, 0xFF09),
             @(0xFF08, 0x00B4, 0xFF0D, 0x03C9, 0xFF0D, 0xFF09)
         ),
-        @(  # blank / blink
+        @(  # （・_・）
             @(0xFF08, 0x30FB, 0x005F, 0x30FB, 0xFF09),
             @(0xFF08, 0xFF0D, 0x005F, 0xFF0D, 0xFF09)
         ),
-        @(  # sleepy / smile
+        @(  # （ ˘ω˘ ）
             @(0xFF08, 0x0020, 0x02D8, 0x03C9, 0x02D8, 0x0020, 0xFF09),
             @(0xFF08, 0x0020, 0x02D8, 0x1D17, 0x02D8, 0x0020, 0xFF09)
         ),
-        @(  # cat / blink
+        @(  # （=・ω・=）
             @(0xFF08, 0x003D, 0x30FB, 0x03C9, 0x30FB, 0x003D, 0xFF09),
             @(0xFF08, 0x003D, 0xFF0D, 0x03C9, 0xFF0D, 0x003D, 0xFF09)
         ),
-        @(  # grin / blink
+        @(  # （・∀・）
             @(0xFF08, 0x30FB, 0x2200, 0x30FB, 0xFF09),
             @(0xFF08, 0xFF0D, 0x2200, 0xFF0D, 0xFF09)
+        ),
+        @(  # （＞ω＜）
+            @(0xFF08, 0xFF1E, 0x03C9, 0xFF1C, 0xFF09),
+            @(0xFF08, 0xFF1E, 0x1D17, 0xFF1C, 0xFF09)
+        ),
+        @(  # （・ｖ・）
+            @(0xFF08, 0x30FB, 0xFF56, 0x30FB, 0xFF09),
+            @(0xFF08, 0xFF0D, 0xFF56, 0xFF0D, 0xFF09)
+        ),
+        @(  # （^_^）
+            @(0xFF08, 0x005E, 0x005F, 0x005E, 0xFF09),
+            @(0xFF08, 0x005E, 0x03C9, 0x005E, 0xFF09)
+        ),
+        @(  # （・◡・）
+            @(0xFF08, 0x30FB, 0x25E1, 0x30FB, 0xFF09),
+            @(0xFF08, 0xFF0D, 0x25E1, 0xFF0D, 0xFF09)
+        ),
+        @(  # （・ツ・）
+            @(0xFF08, 0x30FB, 0x30C4, 0x30FB, 0xFF09),
+            @(0xFF08, 0xFF0D, 0x30C4, 0xFF0D, 0xFF09)
+        ),
+        @(  # （¬ω¬）
+            @(0xFF08, 0x00AC, 0x03C9, 0x00AC, 0xFF09),
+            @(0xFF08, 0x00AC, 0x005F, 0x00AC, 0xFF09)
         )
     )
     uncommon = @(
-        @(  # happy / wink
+        @(  # （๑˃ᴗ˂）
             @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09),
             @(0xFF08, 0x0E51, 0x02C2, 0x1D17, 0x02C3, 0xFF09)
         ),
-        @(  # round / blink
+        @(  # （｡･ω･｡）
             @(0xFF08, 0xFF61, 0xFF65, 0x03C9, 0xFF65, 0xFF61, 0xFF09),
             @(0xFF08, 0xFF61, 0xFF0D, 0x03C9, 0xFF0D, 0xFF61, 0xFF09)
         ),
-        @(  # laugh / hum
+        @(  # （^▽^）
             @(0xFF08, 0x005E, 0x25BD, 0x005E, 0xFF09),
-            @(0xFF08, 0x005E, 0x03C9, 0x005E, 0xFF09)
+            @(0xFF08, 0x005E, 0x1D17, 0x005E, 0xFF09)
         ),
-        @(  # smug / blink
+        @(  # （・ㅂ・）
             @(0xFF08, 0x30FB, 0x3142, 0x30FB, 0xFF09),
             @(0xFF08, 0xFF0D, 0x3142, 0xFF0D, 0xFF09)
         ),
-        @(  # smile / blink
+        @(  # （◕‿◕）
             @(0xFF08, 0x25D5, 0x203F, 0x25D5, 0xFF09),
             @(0xFF08, 0x25E0, 0x203F, 0x25E0, 0xFF09)
+        ),
+        @(  # （๑•ᴗ•๑）
+            @(0xFF08, 0x0E51, 0x2022, 0x1D17, 0x2022, 0x0E51, 0xFF09),
+            @(0xFF08, 0x0E51, 0x002D, 0x1D17, 0x002D, 0x0E51, 0xFF09)
+        ),
+        @(  # （≧ω≦）
+            @(0xFF08, 0x2267, 0x03C9, 0x2266, 0xFF09),
+            @(0xFF08, 0x2267, 0x1D17, 0x2266, 0xFF09)
+        ),
+        @(  # （･ω<）
+            @(0xFF08, 0xFF65, 0x03C9, 0x003C, 0xFF09),
+            @(0xFF08, 0xFF65, 0x1D17, 0x003C, 0xFF09)
+        ),
+        @(  # （。◕‿◕。）
+            @(0xFF08, 0x3002, 0x25D5, 0x203F, 0x25D5, 0x3002, 0xFF09),
+            @(0xFF08, 0x3002, 0x25E0, 0x203F, 0x25E0, 0x3002, 0xFF09)
+        ),
+        @(  # （＾▽＾）
+            @(0xFF08, 0xFF3E, 0x25BD, 0xFF3E, 0xFF09),
+            @(0xFF08, 0xFF3E, 0x1D17, 0xFF3E, 0xFF09)
+        ),
+        @(  # （･◡･）
+            @(0xFF08, 0xFF65, 0x25E1, 0xFF65, 0xFF09),
+            @(0xFF08, 0xFF65, 0x1D17, 0xFF65, 0xFF09)
+        ),
+        @(  # （≖‿≖）
+            @(0xFF08, 0x2256, 0x203F, 0x2256, 0xFF09),
+            @(0xFF08, 0x2256, 0x005F, 0x2256, 0xFF09)
         )
     )
     rare = @(
-        @(  # sparkle
+        @(  # （๑˃ᴗ˂）✧
             @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09, 0x2727),
             @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09, 0x2726)
         ),
-        @(  # cheer / wave
+        @(  # ヽ（•‿•）ノ
             @(0x30FD, 0xFF08, 0x2022, 0x203F, 0x2022, 0xFF09, 0x30CE),
             @(0x30FE, 0xFF08, 0x2022, 0x203F, 0x2022, 0xFF09, 0xFF89)
         ),
-        @(  # star eyes
+        @(  # （★ω★）
             @(0xFF08, 0x2605, 0x03C9, 0x2605, 0xFF09),
             @(0xFF08, 0x2606, 0x03C9, 0x2606, 0xFF09)
         ),
-        @(  # smile sparkle
+        @(  # （◕‿◕）✧
             @(0xFF08, 0x25D5, 0x203F, 0x25D5, 0xFF09, 0x2727),
             @(0xFF08, 0x25E0, 0x203F, 0x25E0, 0xFF09, 0x2726)
         ),
-        @(  # banzai
+        @(  # \（^o^）/
             @(0x005C, 0xFF08, 0x005E, 0x006F, 0x005E, 0xFF09, 0x002F),
             @(0x005C, 0xFF08, 0x005E, 0x004F, 0x005E, 0xFF09, 0x002F)
+        ),
+        @(  # （✧ω✧）
+            @(0xFF08, 0x2727, 0x03C9, 0x2727, 0xFF09),
+            @(0xFF08, 0x2726, 0x03C9, 0x2726, 0xFF09)
+        ),
+        @(  # ヽ（◕‿◕）ノ
+            @(0x30FD, 0xFF08, 0x25D5, 0x203F, 0x25D5, 0xFF09, 0x30CE),
+            @(0x30FE, 0xFF08, 0x25E0, 0x203F, 0x25E0, 0xFF09, 0xFF89)
+        ),
+        @(  # （๑✧‿✧๑）
+            @(0xFF08, 0x0E51, 0x2727, 0x203F, 0x2727, 0x0E51, 0xFF09),
+            @(0xFF08, 0x0E51, 0x2726, 0x203F, 0x2726, 0x0E51, 0xFF09)
+        ),
+        @(  # （★‿★）
+            @(0xFF08, 0x2605, 0x203F, 0x2605, 0xFF09),
+            @(0xFF08, 0x2606, 0x203F, 0x2606, 0xFF09)
+        ),
+        @(  # （≧∇≦）✧
+            @(0xFF08, 0x2267, 0x2207, 0x2266, 0xFF09, 0x2727),
+            @(0xFF08, 0x2267, 0x25BD, 0x2266, 0xFF09, 0x2726)
+        ),
+        @(  # ヽ（^ω^）ノ
+            @(0x30FD, 0xFF08, 0x005E, 0x03C9, 0x005E, 0xFF09, 0x30CE),
+            @(0x30FE, 0xFF08, 0x005E, 0x1D17, 0x005E, 0xFF09, 0xFF89)
+        ),
+        @(  # （･∀･）✧
+            @(0xFF08, 0xFF65, 0x2200, 0xFF65, 0xFF09, 0x2727),
+            @(0xFF08, 0xFF65, 0x2200, 0xFF65, 0xFF09, 0x2726)
         )
     )
     unique = @(
-        @(  # shining
+        @(  # （☆▽☆）
             @(0xFF08, 0x2606, 0x25BD, 0x2606, 0xFF09),
             @(0xFF08, 0x2605, 0x25BD, 0x2605, 0xFF09)
         ),
-        @(  # shocked
+        @(  # ヽ（°〇°）ﾉ
             @(0x30FD, 0xFF08, 0x00B0, 0x3007, 0x00B0, 0xFF09, 0xFF89),
             @(0x30FE, 0xFF08, 0x00B0, 0x0414, 0x00B0, 0xFF09, 0xFF89)
         ),
-        @(  # excited
+        @(  # （ﾉ◕ヮ◕）ﾉ
             @(0xFF08, 0xFF89, 0x25D5, 0x30EE, 0x25D5, 0xFF09, 0xFF89),
             @(0xFF08, 0x30FD, 0x25D5, 0x30EE, 0x25D5, 0xFF09, 0x30FD)
         ),
-        @(  # heart eyes
+        @(  # （♡‿♡）
             @(0xFF08, 0x2661, 0x203F, 0x2661, 0xFF09),
             @(0xFF08, 0x2665, 0x203F, 0x2665, 0xFF09)
+        ),
+        @(  # （ﾉ☆▽☆）ﾉ
+            @(0xFF08, 0xFF89, 0x2606, 0x25BD, 0x2606, 0xFF09, 0xFF89),
+            @(0xFF08, 0x30FD, 0x2605, 0x25BD, 0x2605, 0xFF09, 0x30FD)
+        ),
+        @(  # （๑♡‿♡๑）
+            @(0xFF08, 0x0E51, 0x2661, 0x203F, 0x2661, 0x0E51, 0xFF09),
+            @(0xFF08, 0x0E51, 0x2665, 0x203F, 0x2665, 0x0E51, 0xFF09)
+        ),
+        @(  # ヽ（✧∇✧）ノ
+            @(0x30FD, 0xFF08, 0x2727, 0x2207, 0x2727, 0xFF09, 0x30CE),
+            @(0x30FE, 0xFF08, 0x2726, 0x25BD, 0x2726, 0xFF09, 0xFF89)
+        ),
+        @(  # （＠◕ᴗ◕＠）
+            @(0xFF08, 0xFF20, 0x25D5, 0x1D17, 0x25D5, 0xFF20, 0xFF09),
+            @(0xFF08, 0xFF20, 0x25E0, 0x1D17, 0x25E0, 0xFF20, 0xFF09)
+        ),
+        @(  # （ﾉ≧ڡ≦）ﾉ
+            @(0xFF08, 0xFF89, 0x2267, 0x06A1, 0x2266, 0xFF09, 0xFF89),
+            @(0xFF08, 0x30FD, 0x2267, 0x06A1, 0x2266, 0xFF09, 0x30FD)
         )
     )
     legend = @(
-        @(  # blessed
+        @(  # ✧（◕ᴗ◕）✧
             @(0x2727, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2727),
-            @(0x2726, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2726)
+            @(0x2726, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2726),
+            @(0x2727, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2726),
+            @(0x2726, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2727)
         ),
-        @(  # in love
+        @(  # ヽ（♡‿♡）ノ
             @(0x30FD, 0xFF08, 0x2661, 0x203F, 0x2661, 0xFF09, 0x30CE),
-            @(0x30FE, 0xFF08, 0x2665, 0x203F, 0x2665, 0xFF09, 0xFF89)
+            @(0x30FE, 0xFF08, 0x2665, 0x203F, 0x2665, 0xFF09, 0xFF89),
+            @(0x30FD, 0xFF08, 0x2665, 0x203F, 0x2665, 0xFF09, 0x30CE),
+            @(0x30FE, 0xFF08, 0x2661, 0x203F, 0x2661, 0xFF09, 0xFF89)
         ),
-        @(  # triumph
+        @(  # （ﾉ≧∇≦）ﾉ
             @(0xFF08, 0xFF89, 0x2267, 0x2207, 0x2266, 0xFF09, 0xFF89),
-            @(0xFF08, 0xFF89, 0x2267, 0x25BD, 0x2266, 0xFF09, 0xFF89)
+            @(0xFF08, 0xFF89, 0x2267, 0x25BD, 0x2266, 0xFF09, 0xFF89),
+            @(0xFF08, 0x30FD, 0x2267, 0x2207, 0x2266, 0xFF09, 0x30FD),
+            @(0xFF08, 0x30FD, 0x2267, 0x25BD, 0x2266, 0xFF09, 0x30FD)
         ),
-        @(  # singing
+        @(  # ♪（๑ᴖ◡ᴖ๑）♪
             @(0x266A, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0x266A),
-            @(0x266B, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0x266B)
+            @(0x266B, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0x266B),
+            @(0x2669, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0x2669),
+            @(0x266C, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0x266C)
+        ),
+        @(  # （✧ᴗ✧）
+            @(0xFF08, 0x2727, 0x1D17, 0x2727, 0xFF09),
+            @(0xFF08, 0x2726, 0x1D17, 0x2726, 0xFF09),
+            @(0xFF08, 0x2605, 0x1D17, 0x2605, 0xFF09),
+            @(0xFF08, 0x2606, 0x1D17, 0x2606, 0xFF09)
+        )
+    )
+    dev = @(
+        @(  # （¬‿¬）
+            @(0xFF08, 0x00AC, 0x203F, 0x00AC, 0xFF09),
+            @(0xFF08, 0x00AC, 0x005F, 0x00AC, 0xFF09)
+        ),
+        @(  # （☞ﾟヮﾟ）☞
+            @(0xFF08, 0x261E, 0xFF9F, 0x30EE, 0xFF9F, 0xFF09, 0x261E),
+            @(0xFF08, 0x261C, 0xFF9F, 0x30EE, 0xFF9F, 0xFF09, 0x261C)
+        ),
+        @(  # （◣_◢）
+            @(0xFF08, 0x25E3, 0x005F, 0x25E2, 0xFF09),
+            @(0xFF08, 0x25E2, 0x005F, 0x25E3, 0xFF09)
+        ),
+        @(  # ᕙ（⇀‸↼）ᕗ
+            @(0x1559, 0xFF08, 0x21C0, 0x2038, 0x21BC, 0xFF09, 0x1557),
+            @(0x1566, 0xFF08, 0x21C0, 0x2038, 0x21BC, 0xFF09, 0x1564)
         )
     )
 }
 
-# Builds a face frame from its code points. Every glyph is inside the BMP, so a
+# What the mascot says once a turn is done. The higher the rarity, the more
+# of an actual sentence it manages.
+$TalkTable = @{
+    common = @('왕!', '냥!', '뿌!', '삐약!', '꽥!', '음냐')
+    uncommon = @('왕왕!', '다했다!', '끝!', '됐다!', '오케이!', '히히')
+    rare = @('다 됐어요', '끝났어요', '완료했어요', '해냈어요!', '준비 끝!')
+    unique = @('작업 완료했어요!', '다 끝냈습니다!', '깔끔하게 끝냈어요!', '확인해 보세요!')
+    legend = @('요청하신 작업 모두 완료했습니다!', '전부 끝냈습니다, 확인 부탁드려요!', '작업을 성공적으로 마쳤습니다!')
+    dev = @('빌드 통과.', '커밋하시죠.', '배포 준비 완료.', '테스트 전부 초록불.')
+}
+$TalkError = @('앗...', '실패했어요...')
+
+# Builds one frame from its code points. Every glyph is inside the BMP, so a
 # plain [char] cast is both correct and cheap enough to run every refresh.
 function New-Kao {
     param([int[]]$Cp)
@@ -332,9 +507,30 @@ function Get-GachaKey {
     try { return [System.IO.File]::ReadAllText($file).Trim() } catch { return '' }
 }
 
-# Today's draw: @{ Tier; Index } or $null when there is no key.
-# Two independent 32-bit windows of one HMAC pick the tier and the face, so the
-# tier is not recoverable from the face or the other way round.
+# Whether this machine's key is one of the maintainer keys. Comparing hashes
+# rather than keys is what lets the list ship in the open.
+function Test-DevKey {
+    param([string]$Key)
+
+    if ($Key -eq '' -or $DevKeyHashes.Count -eq 0) { return $false }
+    $sha = $null
+    try {
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        $bytes = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Key))
+        $hex = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+    } catch {
+        return $false
+    } finally {
+        if ($null -ne $sha) { $sha.Dispose() }
+    }
+    foreach ($h in $DevKeyHashes) {
+        if ($hex -eq ([string]$h).Trim().ToLower()) { return $true }
+    }
+    return $false
+}
+
+# Today's draw: @{ Tier; Index } or $null when there is no key. Two independent
+# 32-bit windows of one HMAC pick the tier and the face.
 function Get-GachaDraw {
     $key = Get-GachaKey
     if ($key -eq '') { return $null }
@@ -358,11 +554,29 @@ function Get-GachaDraw {
     $n1 = ([long]$bytes[0] * 16777216) + ([long]$bytes[1] * 65536) + ([long]$bytes[2] * 256) + [long]$bytes[3]
     $n2 = ([long]$bytes[4] * 16777216) + ([long]$bytes[5] * 65536) + ([long]$bytes[6] * 256) + [long]$bytes[7]
 
+    # A maintainer key adds the dev tier in front; the ordinary tiers then share
+    # what is left of the 1000, keeping their ratio to each other. Whatever the
+    # rounding leaves over goes to dev, so the odds still total exactly 1000.
+    $tiers = $MascotTiers
+    $odds = $MascotOdds
+    if (Test-DevKey $key) {
+        $scaled = @{}
+        $used = 0
+        foreach ($t in $MascotTiers) {
+            $v = [int][Math]::Floor([double]$MascotOdds[$t] * (1000 - $DevOdds) / 1000)
+            $scaled[$t] = $v
+            $used += $v
+        }
+        $scaled['dev'] = 1000 - $used
+        $tiers = @('dev') + $MascotTiers
+        $odds = $scaled
+    }
+
     $roll = [int]($n1 % 1000)
-    $tier = $MascotTiers[0]
+    $tier = $tiers[0]
     $acc = 0
-    foreach ($t in $MascotTiers) {
-        $acc += [int]$MascotOdds[$t]
+    foreach ($t in $tiers) {
+        $acc += [int]$odds[$t]
         if ($roll -lt $acc) { $tier = $t; break }
     }
 
@@ -370,6 +584,40 @@ function Get-GachaDraw {
     $idx = 0
     if ($pool.Count -gt 0) { $idx = [int]($n2 % $pool.Count) }
     return @{ Tier = $tier; Index = $idx }
+}
+
+# Tier color. Legend and dev walk the rainbow so the face keeps shifting hue on
+# every refresh; dev walks it backwards, which keeps the two tiers apart.
+function Get-TierColor {
+    param([string]$Tier)
+
+    if ($Tier -eq 'legend' -or $Tier -eq 'dev') {
+        if ([string]::IsNullOrEmpty($Reset)) { return '' }
+        $n = $RainbowColors.Count
+        $step = 0
+        if ($Now -gt 0 -and $n -gt 0) { $step = [int](($Now / 5) % $n) }
+        if ($Tier -eq 'dev') { $step = ($n - 1) - $step }
+        return "$($Esc)[1;38;5;$($RainbowColors[$step])m"
+    }
+    switch ($Tier) {
+        'unique'   { return $CUnique }
+        'rare'     { return $CRare }
+        'uncommon' { return $CUncommon }
+        default    { return $CCommon }
+    }
+}
+
+# Picks the spoken line for a finished turn. Seeded with the timestamp the hook
+# recorded, so the line is stable across redraws but changes with the next turn.
+function Get-Talk {
+    param([string]$Tier, [long]$Stamp)
+
+    if (-not $ShowMascotTalk) { return '' }
+    $pool = $TalkTable[$Tier]
+    if ($null -eq $pool -or $pool.Count -eq 0) { return '' }
+    $h = ($Stamp * 1103515245 + 12345) % 2147483648
+    if ($h -lt 0) { $h = -$h }
+    return $pool[[int]($h % $pool.Count)]
 }
 
 # Reads the turn state the hooks left for this session and draws the face.
@@ -384,13 +632,25 @@ function Get-Mascot {
     try { $raw = [System.IO.File]::ReadAllText($file).Trim() } catch { return '' }
     if ([string]::IsNullOrWhiteSpace($raw)) { return '' }
 
-    $state = ($raw -split '\s+')[0]
+    $tok = $raw -split '\s+'
+    $state = $tok[0]
     $working = ($state -eq 'working')
+    $stamp = 0
+    if ($tok.Count -ge 2) {
+        $parsed = Get-Epoch $tok[1]
+        if ($null -ne $parsed) { $stamp = $parsed }
+    }
 
     if ($state -eq 'error') {
         $frame = 0
         if ($Now -gt 0) { $frame = [int](($Now / 5) % $KaoError.Count) }
-        return "$($CCrit)$(New-Kao $KaoError[$frame])$($Reset)"
+        $out = "$($CCrit)$(New-Kao $KaoError[$frame])"
+        if ($ShowMascotTalk -and $TalkError.Count -gt 0) {
+            $h = ($stamp * 1103515245 + 12345) % 2147483648
+            if ($h -lt 0) { $h = -$h }
+            $out += " $($TalkError[[int]($h % $TalkError.Count)])"
+        }
+        return "$($out)$($Reset)"
     }
     if (-not $working -and $state -ne 'done') { return '' }
 
@@ -403,15 +663,59 @@ function Get-Mascot {
         $frame = [int](($Now / 5) % $face.Count)
     }
 
-    switch ($draw.Tier) {
-        'legend'   { $color = $CLegend }
-        'unique'   { $color = $CUnique }
-        'rare'     { $color = $CRare }
-        'uncommon' { $color = $CUncommon }
-        default    { $color = $CCommon }
+    $color = Get-TierColor $draw.Tier
+    $out = "$($color)$(New-Kao $face[$frame])"
+    # The mascot only speaks once the turn is over; mid-turn it just animates.
+    if (-not $working) {
+        $talk = Get-Talk $draw.Tier $stamp
+        if ($talk -ne '') { $out += " $($talk)" }
     }
-    return "$($color)$(New-Kao $face[$frame])$($Reset)"
+    return "$($out)$($Reset)"
 }
+# ---- subcommands -----------------------------------------------------------
+# These never read stdin, so they work from a plain prompt.
+
+if ($Help) {
+    Write-Output "claude-code-statusline-astro $StatuslineVersion"
+    Write-Output ''
+    Write-Output '  statusline.ps1            Claude Code calls this with session JSON on stdin'
+    Write-Output '  statusline.ps1 -Today     show today''s mascot draw'
+    Write-Output '  statusline.ps1 -Version   show the version'
+    Write-Output '  statusline.ps1 -Help      this text'
+    Write-Output ''
+    Write-Output 'Settings live at the top of this file. Update by re-running install.ps1.'
+    exit 0
+}
+
+if ($Version) {
+    Write-Output "claude-code-statusline-astro $StatuslineVersion"
+    exit 0
+}
+
+if ($Today) {
+    $draw = Get-GachaDraw
+    if ($null -eq $draw) {
+        Write-Output '아직 뽑기 전입니다. 턴을 한 번 끝내면 오늘의 마스코트가 정해집니다.'
+        exit 0
+    }
+    $face = $KaoTable[$draw.Tier][$draw.Index]
+    $label = @{
+        common = '커먼'; uncommon = '언커먼'; rare = '레어'
+        unique = '유니크'; legend = '레전드'; dev = 'DEV'
+    }[$draw.Tier]
+    $frames = @()
+    foreach ($f in $face) { $frames += (New-Kao $f) }
+    Write-Output ("오늘의 마스코트  {0}{1}$($Reset)  [{2}]" -f (Get-TierColor $draw.Tier), $frames[0], $label)
+    Write-Output ("표정 {0}장         {1}" -f $frames.Count, ($frames -join '  '))
+    $pool = $TalkTable[$draw.Tier]
+    if ($null -ne $pool -and $pool.Count -gt 0) {
+        Write-Output ("대사              {0}" -f ($pool -join ' / '))
+    }
+    Write-Output ''
+    Write-Output '얼굴은 날짜로 정해집니다. 내일 다시 뽑힙니다.'
+    exit 0
+}
+
 try {
     $raw = $null
     try { $raw = [Console]::In.ReadToEnd() } catch { $raw = $null }
