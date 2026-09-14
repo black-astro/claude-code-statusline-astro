@@ -93,16 +93,16 @@ LEGEND_DESC = {
 # GRADIENT_STEPS cells around a closed loop, so the band flows back into
 # itself without a seam.
 # One hue family per legend so no two read alike, and no cell darker than a
-# relative luminance of 0.10 so every legend stays visible on a black screen:
+# relative luminance of 0.07 so every legend stays visible on a black screen:
 #   dawn gold, crimson pink, royal tangerine, abyss cyan-ice, amethyst
 #   green-to-navy, ember blood red, radiance lavender-silver.
 PALETTES = {
-    'dawn':     ['b8860b', 'e0a800', 'ffcc33', 'ffe9a3', 'fff8e1'],
-    'crimson':  ['c2185b', 'e8336e', 'ff5c8a', 'ff8fb3', 'ffc4dc'],
-    'royal':    ['d2540c', 'f07020', 'ff9a2e', 'ffc98a', 'ffe6c7'],
-    'abyss':    ['0b8fa8', '18b8d4', '3fe0ff', 'a8f4ff', 'e6fdff'],
-    'amethyst': ['b8ffb0', '5fe07a', '2bb08a', '2f7fd0', '3b5fc0'],
-    'ember':    ['c8322f', 'e04545', 'ff6464', 'ff9595', 'ffbdb5'],
+    'dawn':     ['8f6508', 'd09a00', 'ffcc33', 'ffe9a3', 'fff8e1'],
+    'crimson':  ['a0124a', 'dc2a66', 'ff5c8a', 'ff8fb3', 'ffc4dc'],
+    'royal':    ['a83f08', 'e8661a', 'ff9a2e', 'ffc98a', 'ffe6c7'],
+    'abyss':    ['0a6e82', '14a9c6', '3fe0ff', 'a8f4ff', 'e6fdff'],
+    'amethyst': ['b8ffb0', '5fe07a', '2bb08a', '2b6fc4', '2b4aa8'],
+    'ember':    ['a82524', 'd63c3c', 'ff6464', 'ff9595', 'ffbdb5'],
     'radiance': ['8a78e0', 'bfb2f5', 'ece6ff', 'ffffff', 'd0d5e0', 'a9afc0'],
 }
 GRADIENT_STEPS = 36
