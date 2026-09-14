@@ -256,23 +256,17 @@ sh ~/.claude/statusline.sh --version
 레전드는 **얼굴마다 색이 다릅니다.** 색상환을 한 바퀴 도는 대신 좁은 색 구간을
 밝기로 오가기 때문에, 요란하지 않고 차분하게 흐릅니다.
 
-| 얼굴 | 색 | 흐름 |
-| --- | --- | --- |
-| `･ﾟ✧（◕ᴗ◕）✧ﾟ･` | ![](https://placehold.co/18x18/5f00af/5f00af.png) ![](https://placehold.co/18x18/5f00d7/5f00d7.png) ![](https://placehold.co/18x18/5f00ff/5f00ff.png) ![](https://placehold.co/18x18/8700ff/8700ff.png) ![](https://placehold.co/18x18/af00ff/af00ff.png) ![](https://placehold.co/18x18/d700ff/d700ff.png) ![](https://placehold.co/18x18/ff00ff/ff00ff.png) ![](https://placehold.co/18x18/ff5fd7/ff5fd7.png) | 보라에서 금빛으로 |
-| `♡ヽ（♥‿♥）ノ♡` | ![](https://placehold.co/18x18/5f0087/5f0087.png) ![](https://placehold.co/18x18/5f00af/5f00af.png) ![](https://placehold.co/18x18/5f00d7/5f00d7.png) ![](https://placehold.co/18x18/5f00ff/5f00ff.png) ![](https://placehold.co/18x18/8700ff/8700ff.png) ![](https://placehold.co/18x18/af00ff/af00ff.png) ![](https://placehold.co/18x18/d700ff/d700ff.png) ![](https://placehold.co/18x18/ff00ff/ff00ff.png) | 진보라에서 연분홍으로 |
-| `✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧` | ![](https://placehold.co/18x18/5f0000/5f0000.png) ![](https://placehold.co/18x18/870000/870000.png) ![](https://placehold.co/18x18/af0000/af0000.png) ![](https://placehold.co/18x18/d70000/d70000.png) ![](https://placehold.co/18x18/ff0000/ff0000.png) ![](https://placehold.co/18x18/ff5f00/ff5f00.png) ![](https://placehold.co/18x18/ff8700/ff8700.png) ![](https://placehold.co/18x18/ffaf00/ffaf00.png) | 진홍에서 금빛으로 |
-| `♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪` | ![](https://placehold.co/18x18/00005f/00005f.png) ![](https://placehold.co/18x18/000087/000087.png) ![](https://placehold.co/18x18/0000af/0000af.png) ![](https://placehold.co/18x18/0000d7/0000d7.png) ![](https://placehold.co/18x18/005fd7/005fd7.png) ![](https://placehold.co/18x18/0087d7/0087d7.png) ![](https://placehold.co/18x18/00afd7/00afd7.png) ![](https://placehold.co/18x18/00d7d7/00d7d7.png) | 남색에서 청록으로 |
-| `･ﾟ✧（￣ヘ￣）✧ﾟ･` | ![](https://placehold.co/18x18/5f5f00/5f5f00.png) ![](https://placehold.co/18x18/875f00/875f00.png) ![](https://placehold.co/18x18/af5f00/af5f00.png) ![](https://placehold.co/18x18/d75f00/d75f00.png) ![](https://placehold.co/18x18/ff5f00/ff5f00.png) ![](https://placehold.co/18x18/ff8700/ff8700.png) ![](https://placehold.co/18x18/ffaf00/ffaf00.png) ![](https://placehold.co/18x18/ffd700/ffd700.png) | 호박빛에서 순금으로 |
-| `✦ﾟ（╬◣_◢）ﾟ✦` | ![](https://placehold.co/18x18/5f0000/5f0000.png) ![](https://placehold.co/18x18/5f005f/5f005f.png) ![](https://placehold.co/18x18/87005f/87005f.png) ![](https://placehold.co/18x18/af005f/af005f.png) ![](https://placehold.co/18x18/d7005f/d7005f.png) ![](https://placehold.co/18x18/ff005f/ff005f.png) ![](https://placehold.co/18x18/ff0087/ff0087.png) ![](https://placehold.co/18x18/ff00af/ff00af.png) | 핏빛에서 자홍으로 |
-| `≪✧（╬▼_▼）✧≫` | ![](https://placehold.co/18x18/8787d7/8787d7.png) ![](https://placehold.co/18x18/8787ff/8787ff.png) ![](https://placehold.co/18x18/87afff/87afff.png) ![](https://placehold.co/18x18/afafff/afafff.png) ![](https://placehold.co/18x18/d7afff/d7afff.png) ![](https://placehold.co/18x18/d7d7ff/d7d7ff.png) ![](https://placehold.co/18x18/ffd7ff/ffd7ff.png) ![](https://placehold.co/18x18/ffffff/ffffff.png) | 영롱한 연보라에서 흰빛과 은색으로 |
+실제로 이렇게 보입니다. 색은 계속 흘러서, 아래 그림은 그중 한 순간입니다.
 
-## 뽑기는 하루 한 번
-
-날짜가 바뀌면 다시 뽑을 수 있고, 뽑지 않으면 지금 얼굴이 그대로 남습니다. 하루에
-여러 번 뽑거나, 원하는 등급을 골라서 뽑을 수는 없습니다.
-
-마스코트 기록은 `~/.claude/statusline-cache/` 폴더에 보관됩니다. 이 폴더를 지우면
-뽑은 마스코트도 사라지니 그대로 두세요.
+| 얼굴 | 색 흐름 |
+| --- | --- |
+| ![](docs/legend/legend-1.svg) | 보라에서 금빛으로 |
+| ![](docs/legend/legend-2.svg) | 진보라에서 자홍으로 |
+| ![](docs/legend/legend-3.svg) | 진홍에서 금빛으로 |
+| ![](docs/legend/legend-4.svg) | 남색에서 청록으로 |
+| ![](docs/legend/legend-5.svg) | 호박빛에서 순금으로 |
+| ![](docs/legend/legend-6.svg) | 자주에서 분홍으로 |
+| ![](docs/legend/legend-7.svg) | 영롱한 연보라에서 흰빛과 은색으로 |
 
 ## 얼굴 전체 목록
 
