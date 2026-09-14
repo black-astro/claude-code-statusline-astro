@@ -8,6 +8,7 @@
 # Run with no arguments (the way Claude Code calls it) to print the status line.
 #   -Roll      roll today's mascot (once a day) and exit
 #   -Roll -Tier <name>   maintainer only: set the tier outright
+#   -Roll -Tier <name> -Face <name|number>   maintainer only: that exact face
 #   -Today     print the mascot you are currently wearing and exit
 #   -Version   print the version and exit
 #   -Help      print a short usage summary and exit
@@ -16,10 +17,11 @@ param(
     [switch]$Today,
     [switch]$Version,
     [switch]$Help,
-    [string]$Tier = ''
+    [string]$Tier = '',
+    [string]$Face = ''
 )
 
-$StatuslineVersion = '1.4.1'
+$StatuslineVersion = '1.4.2'
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -462,7 +464,7 @@ function Test-CanRoll {
 # there is no key. The randomness is cryptographic, so the outcome is not
 # predictable from the date or from previous rolls.
 function Invoke-GachaRoll {
-    param([string]$WantTier = '')
+    param([string]$WantTier = '', [string]$WantFace = '')
 
     $key = Get-GachaKey
     if ($key -eq '') { return $null }
@@ -518,6 +520,23 @@ function Invoke-GachaRoll {
     $faces = Get-Faces $tier
     $idx = 0
     if ($faces.Count -gt 0) { $idx = [int]($n2 % $faces.Count) }
+
+    # A named face (or its 1-based number) goes with a chosen tier, so the
+    # maintainer can wear each one in turn while working on them.
+    if ($WantTier -ne '' -and $WantFace -ne '') {
+        $names = (Get-Names $tier).Split('|')
+        $pick = -1
+        $num = 0
+        if ([int]::TryParse($WantFace, [ref]$num)) {
+            if ($num -ge 1 -and $num -le $faces.Count) { $pick = $num - 1 }
+        } else {
+            for ($k = 0; $k -lt $names.Count; $k++) {
+                if ($names[$k] -eq $WantFace) { $pick = $k; break }
+            }
+        }
+        if ($pick -lt 0) { return @{ BadFace = $true; Names = $names } }
+        $idx = $pick
+    }
 
     $today = [DateTime]::Now.ToString('yyyyMMdd')
     $stamp = $Now
@@ -734,7 +753,8 @@ if ($Help) {
     Write-Output ''
     Write-Output '뽑기는 하루 한 번이고, 뽑기 전까지 지금 마스코트가 그대로 유지됩니다.'
     Write-Output ''
-    Write-Output '  statusline.ps1 -Roll -Tier legend    등급 지정 (메인테이너 키 전용)'
+    Write-Output '  statusline.ps1 -Roll -Tier legend               등급 지정 (메인테이너 키 전용)'
+    Write-Output '  statusline.ps1 -Roll -Tier legend -Face Wrath   얼굴 지정 (메인테이너 키 전용)'
     exit 0
 }
 
@@ -746,7 +766,7 @@ if ($Version) {
 if ($Roll) {
     # 등급을 직접 고르는 건 메인테이너 키에서만 됩니다.
     if ($Tier -ne '') {
-        $forced = Invoke-GachaRoll $Tier
+        $forced = Invoke-GachaRoll $Tier $Face
         if ($null -eq $forced) {
             Write-Output '지정에 실패했습니다.'
             exit 1
@@ -759,6 +779,11 @@ if ($Roll) {
         if ($forced.BadTier) {
             Write-Output "그런 등급이 없습니다: $Tier"
             Write-Output '고를 수 있는 값: common uncommon rare unique legend dev'
+            exit 1
+        }
+        if ($forced.BadFace) {
+            Write-Output "그런 얼굴이 없습니다: $Face"
+            Write-Output ("고를 수 있는 값: {0}" -f ($forced.Names -join ' '))
             exit 1
         }
         Write-Output "$Tier 등급으로 지정했습니다."
