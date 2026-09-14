@@ -15,7 +15,7 @@ FACES = {
         ('Grin',     ['（・∀・）', '（－∀－）']),
         ('Smiley',   ['（・◡・）', '（－◡－）']),
         ('Side-eye', ['（￢_￢）', '（￢‿￢）']),
-        ('Meh',      ['（＝_＝）', '（＝.＝）']),
+        ('Bored',    ['（´-ι_-｀）', '（´-ι.-｀）']),
         ('Blank',    ['（・_・）', '（－_－）']),
         ('Smirk',    ['（≖‿≖）', '（≖_≖）']),
         ('Scowl',    ['（◣_◢）', '（◢_◣）']),
@@ -30,7 +30,7 @@ FACES = {
         ('Wink',     ['（･ω<）', '（-ω<）']),
         ('Stare',    ['（ㆆ_ㆆ）', '（ㆆ.ㆆ）']),
         ('Eyeroll',  ['（◔_◔）', '（◔‸◔）']),
-        ('Half-lid', ['（◓_◓）', '（◒_◒）']),
+        ('Pout',     ['（｡>ㅅ<｡）', '（｡>ㅂ<｡）']),
         ('Hamster',  ['（・ㅂ・）', '（－ㅂ－）']),
         ('Sly',      ['（¬‿¬）', '（¬_¬）']),
         ('Shifty',   ['（◑_◑）', '（◐_◐）']),
@@ -44,7 +44,7 @@ FACES = {
         ('Wave',        ['ヽ（^ω^）ノ', 'ヾ（^ω^）ノ']),
         ('Smug',        ['（￣ｰ￣）◇', '（￣ｰ￣）◆']),
         ('Shades',      ['（▼ω▼）◇', '（▼ω▼）◆']),
-        ('Brat',        ['（◣ω◢）◇', '（◢ω◣）◆']),
+        ('Kiss',        ['（´ε｀）♡', '（´ε｀）♥']),
         ('Knowing',     ['（￢‿￢）◇', '（￢‿￢）◆']),
         ('Starstruck',  ['（★ω★）', '（☆ω☆）']),
         ('Gunslinger',  ['（☞°ヮ°）☞', '（☜°ヮ°）☜']),
@@ -69,6 +69,9 @@ FACES = {
         ('Monarch', ['·°◇（￣ヘ￣）◆°·', '·°◆（￣ヘ￣）◇°·', '·°◇（￣〜￣）◆°·', '·°◆（￣ヘ￣）◇°·']),
         ('Wrath', ['◆°（╬◣_◢）°◇', '◇°（◣_◢╬）°◆', '◆°（╬◣o◢）°◇', '◇°（◣_◢╬）°◆']),
         ('Overlord', ['≪◇（╬▼_▼）◆≫', '≪◆（▼_▼╬）◇≫', '≪◇（╬▼‿▼）◆≫', '≪◆（▼_▼╬）◇≫']),
+        ('Seraph',   ['⊰◇（◕‿◕）◆⊱', '⊱◆（◕‿◕）◇⊰', '⊰◇（◕ᴗ◕）◆⊱', '⊱◆（◕‿◕）◇⊰']),
+        ('Wyvern',   ['༺◆（◣ω◢）◇༻', '༻◇（◢ω◣）◆༺', '༺◆（◣▽◢）◇༻', '༻◇（◢ω◣）◆༺']),
+        ('Fairy',    ['ʚ◇（๑˃ᴗ˂๑）◆ɞ', 'ɞ◆（๑˂ᴗ˃๑）◇ʚ', 'ʚ◇（๑˃o˂๑）◆ɞ', 'ɞ◆（๑˂ᴗ˃๑）◇ʚ']),
     ],
     'dev': [
         ('Root',   ['｛・ω・｝', '｛－ω－｝']),
@@ -79,7 +82,7 @@ FACES = {
 }
 
 # legend index -> palette name, mood-matched
-LEGEND_PALETTES = ['dawn', 'crimson', 'royal', 'abyss', 'amethyst', 'ember', 'radiance']
+LEGEND_PALETTES = ['dawn', 'crimson', 'royal', 'abyss', 'amethyst', 'ember', 'radiance', 'sapphire', 'emerald', 'orchid']
 LEGEND_DESC = {
     'dawn':     '금빛에서 크림색으로',
     'crimson':  '자주에서 분홍으로',
@@ -88,6 +91,9 @@ LEGEND_DESC = {
     'amethyst': '연초록에서 파랑으로',
     'ember':    '진한 붉은색에서 연한 붉은색으로',
     'radiance': '연보라에서 흰빛과 은색으로',
+    'sapphire': '파랑에서 연한 하늘색으로',
+    'emerald': '초록에서 연한 민트로',
+    'orchid': '자주에서 연보라로',
 }
 # RGB keyframes of each legend ramp. The scripts interpolate them into
 # GRADIENT_STEPS cells around a closed loop, so the band flows back into
@@ -104,6 +110,9 @@ PALETTES = {
     'amethyst': ['b8ffb0', '5fe07a', '2bb08a', '2b6fc4', '2b4aa8'],
     'ember':    ['a82524', 'd63c3c', 'ff6464', 'ff9595', 'ffbdb5'],
     'radiance': ['8a78e0', 'bfb2f5', 'ece6ff', 'ffffff', 'd0d5e0', 'a9afc0'],
+    'sapphire': ['2a3fbf', '3f63e0', '6a8cff', 'a0b8ff', 'd6e0ff'],
+    'emerald':  ['0f7a4a', '17a86a', '3fd68f', '8ff0c0', 'd0ffe8'],
+    'orchid':   ['8a1f9c', 'b53fc9', 'dc6cf0', 'ef9dff', 'f8cfff'],
 }
 GRADIENT_STEPS = 36
 
@@ -237,7 +246,7 @@ def ramp_codes(keys, true_color, n=GRADIENT_STEPS):
     return out
 
 
-PALETTE_ORDER = ['dawn', 'crimson', 'royal', 'abyss', 'amethyst', 'ember', 'radiance']
+PALETTE_ORDER = ['dawn', 'crimson', 'royal', 'abyss', 'amethyst', 'ember', 'radiance', 'sapphire', 'emerald', 'orchid']
 
 
 def ps_ramps():
