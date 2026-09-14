@@ -309,7 +309,9 @@ DIR my-project | GIT main | MODEL Opus 5 | CTX [◼◼◻◻◻◻◻◻◻◻] 
 | --- | --- | --- |
 | 마스코트 끄기 | `SHOW_MASCOT=0` | `$ShowMascot = $false` |
 | 마스코트 대사 끄기 (얼굴만) | `SHOW_MASCOT_TALK=0` | `$ShowMascotTalk = $false` |
-| 표정 바뀌는 간격 (초) | `ANIM_SECS=3` | `$AnimSecs = 3` |
+| 표정 바뀌는 간격 (초) | `ANIM_SECS=2` | `$AnimSecs = 2` |
+| 레전드 색이 흐르는 속도 (초당 칸) | `GRADIENT_SPEED=1.5` | `$GradientSpeed = 1.5` |
+| 레전드 색을 256색으로 (트루컬러가 안 되는 터미널) | `LEGEND_TRUE_COLOR=0` | `$LegendTrueColor = $false` |
 | 완료 후 말하는 시간 (초) | `TALK_WINDOW_SECS=60` | `$TalkWindowSecs = 60` |
 | 게이지 길이 | `BAR_LEN=10` | `$BarLength = 10` |
 | 게이지 문양 | `BAR_FULL='◼'` `BAR_EMPTY='◻'` | `$BarFull` `$BarEmpty` |
@@ -342,6 +344,12 @@ Claude.ai 구독 플랜이 아니면 사용량이 내려오지 않습니다. 나
 
 **색이 안 나옵니다.**
 `NO_COLOR` 환경변수가 켜져 있는지 확인하세요. 아주 오래된 터미널은 256색을 지원하지 않습니다.
+
+**레전드 색만 이상하게 나옵니다.**
+레전드는 24비트 색을 씁니다. 터미널이 256색까지만 지원하면 `LEGEND_TRUE_COLOR=0` (PowerShell은 `$LegendTrueColor = $false`)으로 바꾸세요. 색이 가장 가까운 256색으로 맞춰집니다.
+
+**레전드 색이 뚝뚝 끊겨 보입니다.**
+줄은 `settings.json`의 `refreshInterval`(초)마다 다시 그려집니다. 설치 프로그램은 2로 맞춰 두는데, 예전에 설치했다면 3일 수 있습니다. 2로 낮추면 더 부드럽게 흐릅니다. 1은 그리기 비용이 커서 권하지 않습니다.
 
 **설치가 됐는지 확인하고 싶습니다.**
 

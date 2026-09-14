@@ -77,7 +77,7 @@ if command -v jq >/dev/null 2>&1; then
                               | map(test("mascot-hook")) | any | not)))
                 + [{"hooks": [{"type": "command", "command": ($hook + " " + $state)}]}]
               );
-        .statusLine = {"type": "command", "command": $cmd, "refreshInterval": 3}
+        .statusLine = {"type": "command", "command": $cmd, "refreshInterval": 2}
         | if $mascot == 1 then
               put_hook("UserPromptSubmit"; "working")
               | put_hook("Stop"; "done")
@@ -99,7 +99,7 @@ if os.path.exists(path):
     if text:
         data = json.loads(text)
 
-data['statusLine'] = {'type': 'command', 'command': cmd, 'refreshInterval': 3}
+data['statusLine'] = {'type': 'command', 'command': cmd, 'refreshInterval': 2}
 
 def put_hook(hooks, event, state):
     """Replace our own entry, keep everyone else's."""
@@ -131,7 +131,7 @@ if (fs.existsSync(path)) {
   const text = fs.readFileSync(path, "utf8").trim();
   if (text) data = JSON.parse(text);
 }
-data.statusLine = { type: "command", command: cmd, refreshInterval: 3 };
+data.statusLine = { type: "command", command: cmd, refreshInterval: 2 };
 
 // Replace our own entry, keep everyone else s.
 function putHook(hooks, event, state) {
@@ -159,7 +159,7 @@ else
     echo '  "statusLine": {' >&2
     echo '    "type": "command",' >&2
     echo "    \"command\": \"${CMD}\"," >&2
-    echo '    "refreshInterval": 3' >&2
+    echo '    "refreshInterval": 2' >&2
     echo '  }' >&2
     exit 1
 fi

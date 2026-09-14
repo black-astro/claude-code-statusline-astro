@@ -19,7 +19,7 @@ param(
     [string]$Tier = ''
 )
 
-$StatuslineVersion = '1.1.0'
+$StatuslineVersion = '1.2.0'
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -28,6 +28,9 @@ try {
     [Console]::InputEncoding = [System.Text.Encoding]::UTF8
 } catch { }
 $OutputEncoding = [System.Text.Encoding]::UTF8
+
+# This script runs on every redraw, so the hot path below avoids cmdlets
+# (each costs tens of milliseconds to spin up) and uses .NET calls instead.
 
 # ---- appearance ------------------------------------------------------------
 $BarLength = 10
@@ -45,17 +48,22 @@ $Ellipsis = [string][char]0x2026
 $ShowSevenDay = $false  # set to $true to also show the 7-day (weekly) meter
 
 # Mascot: a kaomoji at the end of the line that reflects what the session is
-# doing. It needs the companion hooks (mascot-hook.ps1) to know the state -
-# without them the state file never appears and the mascot stays hidden.
+# doing. The companion hooks (mascot-hook.ps1) tell it the state; without them
+# it still shows the face, just never animated.
 $ShowMascot = $true
 # The mascot speaks a line when a turn finishes; set $false for the face alone.
 $ShowMascotTalk = $true
-# Seconds per animation step. Claude Code only redraws every refreshInterval,
-# so anything below that value changes nothing - keep the two in step.
-$AnimSecs = 3
-# 레전드 색 띠를 한 번에 몇 칸 밀지. 스크립트가 다시 불리는 주기는
-# refreshInterval 이 정하므로, 색만 빠르게 흐르게 하려면 이 값을 올린다.
-$GradientShift = 4
+# Seconds per expression frame while a turn runs. Claude Code only redraws
+# every refreshInterval (the installer sets 2), so keep the two equal.
+$AnimSecs = 2
+# Legend gradient: how many cells the colour band travels per second. A ramp
+# is 36 cells long, so at 1.5 it comes full circle every 24 seconds. The band
+# moves on every redraw regardless of refreshInterval; a shorter interval only
+# makes the motion finer, never faster.
+$GradientSpeed = 1.5
+# 24-bit colour for the legend ramp. Set $false on a terminal that only knows
+# 256 colours; the ramp then snaps to the nearest of those.
+$LegendTrueColor = $true
 # How long after a turn ends the mascot keeps talking. Past this it goes quiet
 # until the next turn, so an idle terminal is not left with a stale sentence.
 $TalkWindowSecs = 60
@@ -68,7 +76,7 @@ $MascotOdds = @{ common = 400; uncommon = 350; rare = 180; unique = 60; legend =
 # every other key never sees them. Only the hash is published, so the list gives
 # nothing away - matching it would mean finding a preimage of SHA-256. Add your
 # own hash to claim the tier on your machine: SHA-256 of the key file's text,
-# trimmed of whitespace, hashed as UTF-8. The README gives the exact command.
+# trimmed of whitespace, hashed as UTF-8.
 $DevKeyHashes = @(
     '64528c9f19e91ed0ca521f443a672235456aa3cdf23f45787f07482759777238'
 )
@@ -86,7 +94,7 @@ $homeDir = $HOME
 if ([string]::IsNullOrWhiteSpace($homeDir)) { $homeDir = $env:USERPROFILE }
 $CacheDir = $env:STATUSLINE_CACHE_DIR
 if ([string]::IsNullOrWhiteSpace($CacheDir)) {
-    $CacheDir = Join-Path $homeDir '.claude\statusline-cache'
+    $CacheDir = "$homeDir\.claude\statusline-cache"
 }
 
 $Esc = [char]27
@@ -107,7 +115,7 @@ if ([string]::IsNullOrEmpty($env:NO_COLOR)) {
     $CUncommon = "$($Esc)[38;5;82m"   # green
     $CRare = "$($Esc)[38;5;117m"      # sky blue
     $CUnique = "$($Esc)[38;5;141m"    # purple
-    $CLegend = "$($Esc)[1;38;5;208m"  # orange, bold
+    $CLegend = "$($Esc)[1;38;5;208m"  # orange, bold - only when the gradient is off
     $CDev = "$($Esc)[1;38;5;51m"      # cyan, bold - maintainer only
 } else {
     $Reset = ''; $Dim = ''; $CDir = ''; $CGitMain = ''; $CGitOther = ''
@@ -201,12 +209,15 @@ function Get-Meter {
         $countdown = ''
     }
 
-    $cells = @()
-    for ($i = 0; $i -lt $BarLength; $i++) {
-        if ($i -lt $filled) { $cells += "$($c)$($BarFull)" }
-        else { $cells += "$($c)$($BarEmpty)" }
+    if ($BarGap -eq '') {
+        $bar = ($BarFull * $filled) + ($BarEmpty * ($BarLength - $filled))
+    } else {
+        $cells = [string[]]::new($BarLength)
+        for ($i = 0; $i -lt $BarLength; $i++) {
+            if ($i -lt $filled) { $cells[$i] = $BarFull } else { $cells[$i] = $BarEmpty }
+        }
+        $bar = [string]::Join($BarGap, $cells)
     }
-    $bar = $cells -join $BarGap
 
     $out = "$($c)[$($BarPad)$($bar)$($c)$($BarPad)] $($cPct)$($pct)$($Reset)"
     if ($countdown -ne '') { $out += " $($Dim)$($countdown)$($Reset)" }
@@ -219,7 +230,8 @@ function Get-LeafName {
 
     $trimmed = $Path -replace '[\\/]+$', ''
     if ([string]::IsNullOrWhiteSpace($trimmed)) { $trimmed = $Path }
-    $name = ($trimmed -split '[\\/]') | Select-Object -Last 1
+    $parts = $trimmed -split '[\\/]'
+    $name = $parts[$parts.Count - 1]
     if ([string]::IsNullOrWhiteSpace($name)) { $name = $trimmed }
 
     if ($name.Length -gt $Max) {
@@ -238,298 +250,49 @@ function Get-LeafName {
 # never jitters. The frames advance while a turn runs and settle on the first
 # one when it ends. Legend additionally shimmers through a flowing gradient.
 #
-# Faces are code points, like the bar cells. The spoken lines are literals -
-# Hangul written as code points would be unreadable - so this file carries a
-# UTF-8 BOM to pin its encoding down.
+# Faces are separated by '|' and their frames by '#', exactly as in the sh
+# version; no face contains either character. This file carries a UTF-8 BOM so
+# the glyphs and the Korean lines below survive any editor.
 
-$KaoError = @(
-    @(0xFF08, 0xFF1B, 0x3078, 0xFF1B, 0xFF09),
-    @(0xFF08, 0xFF1B, 0x3145, 0xFF1B, 0xFF09)
-)
+$KaoError = '（；へ；）#（；ㅅ；）'
+$KaoCommon = '（・ω・）#（－ω－）|（´･ω･）#（´-ω-）|（ ˘ω˘ ）z#（ ˘ω˘ ）Z|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（・◡・）#（－◡－）|（￢_￢）#（￢‿￢）|（＝_＝）#（＝.＝）|（・_・）#（－_－）|（≖‿≖）#（≖_≖）|（◣_◢）#（◢_◣）|（ー_ー）#（ー.ー）'
+$KaoUncommon = '（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡-ω-｡）|（^▽^）#（^∇^）|（◕‿◕）#（◠‿◠）|（≧ω≦）#（≧▽≦）|（･ω<）#（-ω<）|（ㆆ_ㆆ）#（ㆆ.ㆆ）|（◔_◔）#（◔‸◔）|（◓_◓）#（◒_◒）|（・ㅂ・）#（－ㅂ－）|（¬‿¬）#（¬_¬）|（◑_◑）#（◐_◐）'
+$KaoRare = '（๑˃ᴗ˂）✧#（๑˂ᴗ˃）✦|ヽ（•‿•）ノ#ヾ（•‿•）ノ|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（๑✧‿✧๑）#（๑✦‿✦๑）|ヽ（^ω^）ノ#ヾ（^ω^）ノ|（￣ｰ￣）✧#（￣ｰ￣）✦|（▼ω▼）✧#（▼ω▼）✦|（◣ω◢）✧#（◢ω◣）✦|（￢‿￢）✧#（￢‿￢）✦|（★ω★）#（☆ω☆）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜'
+$KaoUnique = '✧ヽ（☆▽☆）ノ✧#✦ヾ（★▽★）ノ✦|✧（ﾉ◕ヮ◕）ﾉ✧#✦（ﾉ◠ヮ◠）ﾉ✦|✧（๑♡‿♡๑）✧#✦（๑♥‿♥๑）✦|✧ヽ（✧∇✧）ノ✧#✦ヾ（✦▽✦）ノ✦|✧＼（◕ᴗ◕）／✧#✦＼（◠ᴗ◠）／✦|✧ヽ（￣ヘ￣）ノ✧#✦ヾ（￣ヘ￣）ノ✦|✧ヽ（╬◣_◢）ノ✧#✦ヽ（╬◢_◣）ノ✦|✧ヽ（￢_￢）ノ✧#✦ヾ（￢‿￢）ノ✦|✧ヽ（╬￣ヘ￣）ノ✧#✦ヾ（╬￣ヘ￣）ノ✦|✧┗（⇀‸↼）┛✧#✦┗（⇀‸↼）┛✦'
+$KaoLegend = '･ﾟ✧（◕ᴗ◕）✧ﾟ･#･ﾟ✦（◕ᴗ◕）✦ﾟ･#･ﾟ✧（◕ᴗ◕）✦ﾟ･#･ﾟ✦（◕ᴗ◕）✧ﾟ･|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ノ♥#♡ヾ（♥‿♥）ノ♡#♥ヽ（♡‿♡）ノ♥|✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✦#✧ﾟ（ﾉ≧∇≦）ﾉﾟ✦#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✧|♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬#♩ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♩#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬|･ﾟ✧（￣ヘ￣）✧ﾟ･#･ﾟ✦（￣ヘ￣）✦ﾟ･#･ﾟ✧（￣ヘ￣）✦ﾟ･#･ﾟ✦（￣ヘ￣）✧ﾟ･|✦ﾟ（╬◣_◢）ﾟ✦#✧ﾟ（╬◢_◣）ﾟ✧#✦ﾟ（╬◢_◣）ﾟ✦#✧ﾟ（╬◣_◢）ﾟ✧|≪✧（╬▼_▼）✧≫#≪✦（╬▼_▼）✦≫#≪✧（╬▼_▼）✦≫#≪✦（╬▼_▼）✧≫'
+$KaoDev = '｛・ω・｝#｛－ω－｝|⟨◕ᴗ◕⟩#⟨◠ᴗ◠⟩|［◉_◉］#［◉‸◉］|⟨◣_◢⟩#⟨◢_◣⟩'
 
-$MascotTiers = @('common', 'uncommon', 'rare', 'unique', 'legend')
+$NameCommon = 'Kitten|Droopy|Snooze|Whiskers|Grin|Smiley|Side-eye|Meh|Blank|Smirk|Scowl|Deadpan'
+$NameUncommon = 'Giggle|Rosy|Beam|Bright|Squee|Wink|Stare|Eyeroll|Half-lid|Hamster|Sly|Shifty'
+$NameRare = 'Twinkle|Cheer|Glow|Hooray|Starry|Wave|Smug|Shades|Brat|Knowing|Starstruck|Gunslinger'
+$NameUnique = 'Superstar|Jubilee|Lovestruck|Dazzle|Hurrah|Boss|Fury|Skeptic|Villain|Grit'
+$NameLegend = 'Halo|Heartthrob|Bliss|Serenade|Monarch|Wrath|Overlord'
+$NameDev = 'Root|Sudo|Kernel|Daemon'
 
-# Legend gradients. Each legend face flows through its own ramp - a narrow
-# band of hues moved by brightness, rather than a full trip round the wheel.
-$Palettes = @{
-    abyss = @(17, 18, 19, 20, 26, 32, 38, 44, 51, 45, 39, 33, 27, 21, 20, 18)
-    amethyst = @(55, 56, 57, 93, 129, 165, 201, 207, 213, 219, 213, 207, 201, 165, 129, 93)
-    crimson = @(53, 89, 125, 161, 197, 198, 199, 200, 201, 200, 199, 198, 197, 161, 125, 89)
-    dawn = @(55, 90, 125, 161, 197, 203, 209, 215, 221, 215, 209, 203, 197, 161, 125, 90)
-    ember = @(52, 88, 124, 160, 196, 202, 208, 214, 220, 214, 208, 202, 196, 160, 124, 88)
-    radiance = @(104, 105, 111, 147, 183, 189, 225, 231, 255, 254, 252, 254, 255, 231, 189, 147)
-    royal = @(58, 94, 130, 166, 202, 208, 214, 220, 226, 220, 214, 208, 202, 166, 130, 94)
+# Legend ramps, 36 cells each, generated by docs/legend/render.py
+# from the RGB keyframes there. One set in 24-bit colour, one snapped to the
+# xterm cube for terminals that only know 256 colours.
+$RampTrue = @{
+    dawn = '38;2;90;46;166|38;2;101;49;171|38;2;112;52;176|38;2;123;55;181|38;2;133;57;186|38;2;144;60;191|38;2;155;63;196|38;2;167;68;189|38;2;178;72;182|38;2;190;77;175|38;2;201;81;168|38;2;213;86;161|38;2;224;90;154|38;2;229;98;147|38;2;234;106;140|38;2;240;114;133|38;2;245;122;126|38;2;250;130;119|38;2;255;138;112|38;2;255;147;109|38;2;255;156;105|38;2;255;165;102|38;2;255;173;99|38;2;255;182;95|38;2;255;191;92|38;2;255;197;100|38;2;255;203;107|38;2;255;209;115|38;2;255;215;123|38;2;255;221;130|38;2;255;227;138|38;2;227;197;143|38;2;200;167;147|38;2;173;137;152|38;2;145;106;157|38;2;118;76;161'
+    crimson = '38;2;110;15;60|38;2;120;15;60|38;2;129;16;61|38;2;139;16;61|38;2;148;17;62|38;2;158;17;62|38;2;168;18;63|38;2;177;18;63|38;2;187;21;68|38;2;198;25;75|38;2;209;29;82|38;2;219;32;88|38;2;230;36;95|38;2;240;40;102|38;2;251;44;108|38;2;255;51;115|38;2;255;60;123|38;2;255;69;130|38;2;255;78;137|38;2;255;87;144|38;2;255;96;151|38;2;255;106;159|38;2;255;114;165|38;2;255;122;170|38;2;255;129;176|38;2;255;137;181|38;2;255;145;186|38;2;255;152;192|38;2;255;160;197|38;2;251;162;197|38;2;231;141;177|38;2;211;120;158|38;2;191;99;138|38;2;170;78;119|38;2;150;57;99|38;2;130;36;80'
+    royal = '38;2;166;90;15|38;2;174;97;17|38;2;182;103;19|38;2;190;110;21|38;2;198;117;23|38;2;206;123;25|38;2;214;130;28|38;2;222;137;30|38;2;227;144;33|38;2;232;152;37|38;2;236;160;41|38;2;240;168;45|38;2;245;175;49|38;2;249;183;53|38;2;253;191;56|38;2;255;197;63|38;2;255;201;72|38;2;255;206;81|38;2;255;210;90|38;2;255;214;99|38;2;255;219;108|38;2;255;223;117|38;2;255;227;125|38;2;255;229;133|38;2;255;231;141|38;2;255;234;149|38;2;255;236;157|38;2;255;238;165|38;2;255;240;173|38;2;253;238;174|38;2;240;217;152|38;2;228;196;129|38;2;215;174;106|38;2;203;153;83|38;2;191;132;61|38;2;178;111;38'
+    abyss = '38;2;18;32;110|38;2;20;37;123|38;2;22;43;135|38;2;23;48;148|38;2;25;54;161|38;2;27;59;173|38;2;29;65;186|38;2;31;70;198|38;2;32;79;207|38;2;34;88;215|38;2;35;98;222|38;2;37;107;230|38;2;38;117;237|38;2;40;127;245|38;2;41;136;252|38;2;44;146;255|38;2;47;157;255|38;2;50;168;255|38;2;53;179;255|38;2;55;189;255|38;2;58;200;255|38;2;61;211;255|38;2;67;219;254|38;2;79;224;252|38;2;90;230;250|38;2;101;235;248|38;2;112;240;246|38;2;123;246;244|38;2;134;251;242|38;2;140;249;236|38;2;122;218;218|38;2;105;187;200|38;2;87;156;182|38;2;70;125;164|38;2;53;94;146|38;2;35;63;128'
+    amethyst = '38;2;59;15;122|38;2;66;19;134|38;2;73;23;146|38;2;80;27;157|38;2;87;31;169|38;2;94;35;181|38;2;102;39;193|38;2;109;43;205|38;2;116;48;212|38;2;124;52;219|38;2;131;57;226|38;2;139;61;232|38;2;146;66;239|38;2;154;71;246|38;2;161;75;252|38;2;168;81;255|38;2;175;88;255|38;2;182;94;255|38;2;189;101;255|38;2;196;108;255|38;2;203;114;255|38;2;210;121;255|38;2;215;128;255|38;2;219;136;255|38;2;223;143;255|38;2;226;151;255|38;2;230;158;255|38;2;234;166;255|38;2;237;173;255|38;2;235;174;251|38;2;210;152;233|38;2;185;129;214|38;2;160;106;196|38;2;134;83;177|38;2;109;61;159|38;2;84;38;140'
+    ember = '38;2;107;10;10|38;2;119;11;11|38;2;132;12;12|38;2;144;13;13|38;2;156;14;14|38;2;169;16;16|38;2;181;17;17|38;2;194;18;18|38;2;203;25;18|38;2;211;33;18|38;2;219;41;18|38;2;227;49;18|38;2;235;57;18|38;2;244;66;18|38;2;252;74;18|38;2;255;83;20|38;2;255;94;22|38;2;255;105;25|38;2;255;116;28|38;2;255;126;31|38;2;255;137;34|38;2;255;148;36|38;2;255;157;40|38;2;255;165;45|38;2;255;174;50|38;2;255;182;55|38;2;255;190;60|38;2;255;198;65|38;2;255;206;70|38;2;251;207;72|38;2;230;179;63|38;2;210;151;54|38;2;189;123;46|38;2;169;95;37|38;2;148;66;28|38;2;128;38;19'
+    radiance = '38;2;156;143;224|38;2;163;150;227|38;2;169;157;230|38;2;176;164;233|38;2;183;171;236|38;2;189;178;239|38;2;196;185;242|38;2;203;193;244|38;2;209;200;246|38;2;216;208;249|38;2;223;215;251|38;2;229;223;253|38;2;236;230;255|38;2;239;234;255|38;2;242;238;255|38;2;246;243;255|38;2;249;247;255|38;2;252;251;255|38;2;255;255;255|38;2;250;250;252|38;2;244;246;249|38;2;239;241;246|38;2;234;236;242|38;2;228;232;239|38;2;223;227;236|38;2;218;222;232|38;2;212;217;227|38;2;207;212;223|38;2;202;206;218|38;2;196;201;214|38;2;191;196;209|38;2;185;187;212|38;2;179;178;214|38;2;174;170;217|38;2;168;161;219|38;2;162;152;222'
 }
-# 레전드 얼굴 순서대로 쓰는 팔레트.
+$Ramp256 = @{
+    dawn = '38;5;55|38;5;61|38;5;61|38;5;97|38;5;97|38;5;97|38;5;134|38;5;133|38;5;133|38;5;133|38;5;169|38;5;169|38;5;168|38;5;168|38;5;168|38;5;204|38;5;210|38;5;210|38;5;209|38;5;209|38;5;215|38;5;215|38;5;215|38;5;215|38;5;215|38;5;221|38;5;221|38;5;222|38;5;222|38;5;222|38;5;222|38;5;186|38;5;180|38;5;138|38;5;97|38;5;97'
+    crimson = '38;5;53|38;5;89|38;5;89|38;5;89|38;5;89|38;5;125|38;5;125|38;5;125|38;5;125|38;5;161|38;5;161|38;5;161|38;5;161|38;5;197|38;5;197|38;5;204|38;5;204|38;5;204|38;5;204|38;5;204|38;5;204|38;5;205|38;5;205|38;5;211|38;5;211|38;5;211|38;5;211|38;5;211|38;5;218|38;5;218|38;5;175|38;5;175|38;5;132|38;5;132|38;5;95|38;5;89'
+    royal = '38;5;130|38;5;130|38;5;130|38;5;130|38;5;172|38;5;172|38;5;172|38;5;172|38;5;172|38;5;172|38;5;214|38;5;214|38;5;215|38;5;215|38;5;215|38;5;221|38;5;221|38;5;221|38;5;221|38;5;221|38;5;221|38;5;222|38;5;222|38;5;222|38;5;222|38;5;222|38;5;229|38;5;229|38;5;229|38;5;229|38;5;222|38;5;186|38;5;179|38;5;173|38;5;137|38;5;130'
+    abyss = '38;5;17|38;5;18|38;5;18|38;5;24|38;5;25|38;5;25|38;5;25|38;5;26|38;5;26|38;5;26|38;5;26|38;5;26|38;5;33|38;5;33|38;5;33|38;5;33|38;5;39|38;5;75|38;5;75|38;5;75|38;5;81|38;5;81|38;5;81|38;5;81|38;5;81|38;5;87|38;5;87|38;5;123|38;5;123|38;5;123|38;5;116|38;5;74|38;5;73|38;5;67|38;5;60|38;5;24'
+    amethyst = '38;5;54|38;5;54|38;5;54|38;5;55|38;5;55|38;5;55|38;5;55|38;5;56|38;5;98|38;5;98|38;5;98|38;5;98|38;5;99|38;5;99|38;5;135|38;5;135|38;5;135|38;5;135|38;5;135|38;5;171|38;5;171|38;5;177|38;5;177|38;5;177|38;5;177|38;5;177|38;5;183|38;5;183|38;5;219|38;5;219|38;5;176|38;5;140|38;5;134|38;5;97|38;5;61|38;5;54'
+    ember = '38;5;52|38;5;88|38;5;88|38;5;88|38;5;124|38;5;124|38;5;124|38;5;124|38;5;160|38;5;160|38;5;160|38;5;166|38;5;202|38;5;202|38;5;202|38;5;202|38;5;202|38;5;202|38;5;208|38;5;208|38;5;208|38;5;208|38;5;214|38;5;214|38;5;215|38;5;215|38;5;215|38;5;221|38;5;221|38;5;221|38;5;179|38;5;173|38;5;136|38;5;130|38;5;94|38;5;88'
+    radiance = '38;5;140|38;5;140|38;5;146|38;5;146|38;5;147|38;5;147|38;5;183|38;5;183|38;5;189|38;5;189|38;5;189|38;5;189|38;5;225|38;5;225|38;5;231|38;5;231|38;5;231|38;5;231|38;5;231|38;5;231|38;5;231|38;5;231|38;5;195|38;5;189|38;5;189|38;5;188|38;5;188|38;5;188|38;5;188|38;5;188|38;5;152|38;5;146|38;5;146|38;5;146|38;5;146|38;5;140'
+}
 $LegendPalettes = @('dawn', 'crimson', 'royal', 'abyss', 'amethyst', 'ember', 'radiance')
 
-# Rarity -> faces -> frames.
-$KaoTable = @{
-    common = @(
-        @(  # （・ω・）  Kitten
-            @(0xFF08, 0x30FB, 0x03C9, 0x30FB, 0xFF09),
-            @(0xFF08, 0xFF0D, 0x03C9, 0xFF0D, 0xFF09)
-        ),
-        @(  # （´･ω･）  Droopy
-            @(0xFF08, 0x00B4, 0xFF65, 0x03C9, 0xFF65, 0xFF09),
-            @(0xFF08, 0x00B4, 0x002D, 0x03C9, 0x002D, 0xFF09)
-        ),
-        @(  # （ ˘ω˘ ）z  Snooze
-            @(0xFF08, 0x0020, 0x02D8, 0x03C9, 0x02D8, 0x0020, 0xFF09, 0x007A),
-            @(0xFF08, 0x0020, 0x02D8, 0x03C9, 0x02D8, 0x0020, 0xFF09, 0x005A)
-        ),
-        @(  # （=・ω・=）  Whiskers
-            @(0xFF08, 0x003D, 0x30FB, 0x03C9, 0x30FB, 0x003D, 0xFF09),
-            @(0xFF08, 0x003D, 0xFF0D, 0x03C9, 0xFF0D, 0x003D, 0xFF09)
-        ),
-        @(  # （・∀・）  Grin
-            @(0xFF08, 0x30FB, 0x2200, 0x30FB, 0xFF09),
-            @(0xFF08, 0xFF0D, 0x2200, 0xFF0D, 0xFF09)
-        ),
-        @(  # （・◡・）  Smiley
-            @(0xFF08, 0x30FB, 0x25E1, 0x30FB, 0xFF09),
-            @(0xFF08, 0xFF0D, 0x25E1, 0xFF0D, 0xFF09)
-        ),
-        @(  # （￢_￢）  Side-eye
-            @(0xFF08, 0xFFE2, 0x005F, 0xFFE2, 0xFF09),
-            @(0xFF08, 0xFFE2, 0x203F, 0xFFE2, 0xFF09)
-        ),
-        @(  # （＝_＝）  Meh
-            @(0xFF08, 0xFF1D, 0x005F, 0xFF1D, 0xFF09),
-            @(0xFF08, 0xFF1D, 0x002E, 0xFF1D, 0xFF09)
-        ),
-        @(  # （・_・）  Blank
-            @(0xFF08, 0x30FB, 0x005F, 0x30FB, 0xFF09),
-            @(0xFF08, 0xFF0D, 0x005F, 0xFF0D, 0xFF09)
-        ),
-        @(  # （≖‿≖）  Smirk
-            @(0xFF08, 0x2256, 0x203F, 0x2256, 0xFF09),
-            @(0xFF08, 0x2256, 0x005F, 0x2256, 0xFF09)
-        ),
-        @(  # （◣_◢）  Scowl
-            @(0xFF08, 0x25E3, 0x005F, 0x25E2, 0xFF09),
-            @(0xFF08, 0x25E2, 0x005F, 0x25E3, 0xFF09)
-        ),
-        @(  # （ー_ー）  Deadpan
-            @(0xFF08, 0x30FC, 0x005F, 0x30FC, 0xFF09),
-            @(0xFF08, 0x30FC, 0x002E, 0x30FC, 0xFF09)
-        )
-    )
-    uncommon = @(
-        @(  # （๑˃ᴗ˂）  Giggle
-            @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09),
-            @(0xFF08, 0x0E51, 0x02C2, 0x1D17, 0x02C3, 0xFF09)
-        ),
-        @(  # （｡･ω･｡）  Rosy
-            @(0xFF08, 0xFF61, 0xFF65, 0x03C9, 0xFF65, 0xFF61, 0xFF09),
-            @(0xFF08, 0xFF61, 0x002D, 0x03C9, 0x002D, 0xFF61, 0xFF09)
-        ),
-        @(  # （^▽^）  Beam
-            @(0xFF08, 0x005E, 0x25BD, 0x005E, 0xFF09),
-            @(0xFF08, 0x005E, 0x2207, 0x005E, 0xFF09)
-        ),
-        @(  # （◕‿◕）  Bright
-            @(0xFF08, 0x25D5, 0x203F, 0x25D5, 0xFF09),
-            @(0xFF08, 0x25E0, 0x203F, 0x25E0, 0xFF09)
-        ),
-        @(  # （≧ω≦）  Squee
-            @(0xFF08, 0x2267, 0x03C9, 0x2266, 0xFF09),
-            @(0xFF08, 0x2267, 0x25BD, 0x2266, 0xFF09)
-        ),
-        @(  # （･ω<）  Wink
-            @(0xFF08, 0xFF65, 0x03C9, 0x003C, 0xFF09),
-            @(0xFF08, 0x002D, 0x03C9, 0x003C, 0xFF09)
-        ),
-        @(  # （ㆆ_ㆆ）  Stare
-            @(0xFF08, 0x3186, 0x005F, 0x3186, 0xFF09),
-            @(0xFF08, 0x3186, 0x002E, 0x3186, 0xFF09)
-        ),
-        @(  # （◔_◔）  Eyeroll
-            @(0xFF08, 0x25D4, 0x005F, 0x25D4, 0xFF09),
-            @(0xFF08, 0x25D4, 0x2038, 0x25D4, 0xFF09)
-        ),
-        @(  # （◓_◓）  Half-lid
-            @(0xFF08, 0x25D3, 0x005F, 0x25D3, 0xFF09),
-            @(0xFF08, 0x25D2, 0x005F, 0x25D2, 0xFF09)
-        ),
-        @(  # （・ㅂ・）  Hamster
-            @(0xFF08, 0x30FB, 0x3142, 0x30FB, 0xFF09),
-            @(0xFF08, 0xFF0D, 0x3142, 0xFF0D, 0xFF09)
-        ),
-        @(  # （¬‿¬）  Sly
-            @(0xFF08, 0x00AC, 0x203F, 0x00AC, 0xFF09),
-            @(0xFF08, 0x00AC, 0x005F, 0x00AC, 0xFF09)
-        ),
-        @(  # （◑_◑）  Shifty
-            @(0xFF08, 0x25D1, 0x005F, 0x25D1, 0xFF09),
-            @(0xFF08, 0x25D0, 0x005F, 0x25D0, 0xFF09)
-        )
-    )
-    rare = @(
-        @(  # （๑˃ᴗ˂）✧  Twinkle
-            @(0xFF08, 0x0E51, 0x02C3, 0x1D17, 0x02C2, 0xFF09, 0x2727),
-            @(0xFF08, 0x0E51, 0x02C2, 0x1D17, 0x02C3, 0xFF09, 0x2726)
-        ),
-        @(  # ヽ（•‿•）ノ  Cheer
-            @(0x30FD, 0xFF08, 0x2022, 0x203F, 0x2022, 0xFF09, 0x30CE),
-            @(0x30FE, 0xFF08, 0x2022, 0x203F, 0x2022, 0xFF09, 0x30CE)
-        ),
-        @(  # （◕‿◕）✧  Glow
-            @(0xFF08, 0x25D5, 0x203F, 0x25D5, 0xFF09, 0x2727),
-            @(0xFF08, 0x25E0, 0x203F, 0x25E0, 0xFF09, 0x2726)
-        ),
-        @(  # \（^o^）/  Hooray
-            @(0x005C, 0xFF08, 0x005E, 0x006F, 0x005E, 0xFF09, 0x002F),
-            @(0x005C, 0xFF08, 0x005E, 0x004F, 0x005E, 0xFF09, 0x002F)
-        ),
-        @(  # （๑✧‿✧๑）  Starry
-            @(0xFF08, 0x0E51, 0x2727, 0x203F, 0x2727, 0x0E51, 0xFF09),
-            @(0xFF08, 0x0E51, 0x2726, 0x203F, 0x2726, 0x0E51, 0xFF09)
-        ),
-        @(  # ヽ（^ω^）ノ  Wave
-            @(0x30FD, 0xFF08, 0x005E, 0x03C9, 0x005E, 0xFF09, 0x30CE),
-            @(0x30FE, 0xFF08, 0x005E, 0x03C9, 0x005E, 0xFF09, 0x30CE)
-        ),
-        @(  # （￣ｰ￣）✧  Smug
-            @(0xFF08, 0xFFE3, 0xFF70, 0xFFE3, 0xFF09, 0x2727),
-            @(0xFF08, 0xFFE3, 0xFF70, 0xFFE3, 0xFF09, 0x2726)
-        ),
-        @(  # （▼ω▼）✧  Shades
-            @(0xFF08, 0x25BC, 0x03C9, 0x25BC, 0xFF09, 0x2727),
-            @(0xFF08, 0x25BC, 0x03C9, 0x25BC, 0xFF09, 0x2726)
-        ),
-        @(  # （◣ω◢）✧  Brat
-            @(0xFF08, 0x25E3, 0x03C9, 0x25E2, 0xFF09, 0x2727),
-            @(0xFF08, 0x25E2, 0x03C9, 0x25E3, 0xFF09, 0x2726)
-        ),
-        @(  # （￢‿￢）✧  Knowing
-            @(0xFF08, 0xFFE2, 0x203F, 0xFFE2, 0xFF09, 0x2727),
-            @(0xFF08, 0xFFE2, 0x203F, 0xFFE2, 0xFF09, 0x2726)
-        ),
-        @(  # （★ω★）  Starstruck
-            @(0xFF08, 0x2605, 0x03C9, 0x2605, 0xFF09),
-            @(0xFF08, 0x2606, 0x03C9, 0x2606, 0xFF09)
-        ),
-        @(  # （☞ﾟヮﾟ）☞  Gunslinger
-            @(0xFF08, 0x261E, 0xFF9F, 0x30EE, 0xFF9F, 0xFF09, 0x261E),
-            @(0xFF08, 0x261C, 0xFF9F, 0x30EE, 0xFF9F, 0xFF09, 0x261C)
-        )
-    )
-    unique = @(
-        @(  # ✧ヽ（☆▽☆）ノ✧  Superstar
-            @(0x2727, 0x30FD, 0xFF08, 0x2606, 0x25BD, 0x2606, 0xFF09, 0x30CE, 0x2727),
-            @(0x2726, 0x30FE, 0xFF08, 0x2605, 0x25BD, 0x2605, 0xFF09, 0x30CE, 0x2726)
-        ),
-        @(  # ✧（ﾉ◕ヮ◕）ﾉ✧  Jubilee
-            @(0x2727, 0xFF08, 0xFF89, 0x25D5, 0x30EE, 0x25D5, 0xFF09, 0xFF89, 0x2727),
-            @(0x2726, 0xFF08, 0xFF89, 0x25E0, 0x30EE, 0x25E0, 0xFF09, 0xFF89, 0x2726)
-        ),
-        @(  # ✧（๑♡‿♡๑）✧  Lovestruck
-            @(0x2727, 0xFF08, 0x0E51, 0x2661, 0x203F, 0x2661, 0x0E51, 0xFF09, 0x2727),
-            @(0x2726, 0xFF08, 0x0E51, 0x2665, 0x203F, 0x2665, 0x0E51, 0xFF09, 0x2726)
-        ),
-        @(  # ✧ヽ（✧∇✧）ノ✧  Dazzle
-            @(0x2727, 0x30FD, 0xFF08, 0x2727, 0x2207, 0x2727, 0xFF09, 0x30CE, 0x2727),
-            @(0x2726, 0x30FE, 0xFF08, 0x2726, 0x25BD, 0x2726, 0xFF09, 0x30CE, 0x2726)
-        ),
-        @(  # ✧＼（◕ᴗ◕）／✧  Hurrah
-            @(0x2727, 0xFF3C, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0xFF0F, 0x2727),
-            @(0x2726, 0xFF3C, 0xFF08, 0x25E0, 0x1D17, 0x25E0, 0xFF09, 0xFF0F, 0x2726)
-        ),
-        @(  # ✧ヽ（￣ヘ￣）ノ✧  Boss
-            @(0x2727, 0x30FD, 0xFF08, 0xFFE3, 0x30D8, 0xFFE3, 0xFF09, 0x30CE, 0x2727),
-            @(0x2726, 0x30FE, 0xFF08, 0xFFE3, 0x30D8, 0xFFE3, 0xFF09, 0x30CE, 0x2726)
-        ),
-        @(  # ✧ヽ（╬◣_◢）ノ✧  Fury
-            @(0x2727, 0x30FD, 0xFF08, 0x256C, 0x25E3, 0x005F, 0x25E2, 0xFF09, 0x30CE, 0x2727),
-            @(0x2726, 0x30FD, 0xFF08, 0x256C, 0x25E2, 0x005F, 0x25E3, 0xFF09, 0x30CE, 0x2726)
-        ),
-        @(  # ✧ヽ（￢_￢）ノ✧  Skeptic
-            @(0x2727, 0x30FD, 0xFF08, 0xFFE2, 0x005F, 0xFFE2, 0xFF09, 0x30CE, 0x2727),
-            @(0x2726, 0x30FE, 0xFF08, 0xFFE2, 0x203F, 0xFFE2, 0xFF09, 0x30CE, 0x2726)
-        ),
-        @(  # ✧ヽ（╬￣ヘ￣）ノ✧  Villain
-            @(0x2727, 0x30FD, 0xFF08, 0x256C, 0xFFE3, 0x30D8, 0xFFE3, 0xFF09, 0x30CE, 0x2727),
-            @(0x2726, 0x30FE, 0xFF08, 0x256C, 0xFFE3, 0x30D8, 0xFFE3, 0xFF09, 0x30CE, 0x2726)
-        ),
-        @(  # ✧┗（⇀‸↼）┛✧  Grit
-            @(0x2727, 0x2517, 0xFF08, 0x21C0, 0x2038, 0x21BC, 0xFF09, 0x251B, 0x2727),
-            @(0x2726, 0x2517, 0xFF08, 0x21C0, 0x2038, 0x21BC, 0xFF09, 0x251B, 0x2726)
-        )
-    )
-    legend = @(
-        @(  # ･ﾟ✧（◕ᴗ◕）✧ﾟ･  Halo
-            @(0xFF65, 0xFF9F, 0x2727, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2727, 0xFF9F, 0xFF65),
-            @(0xFF65, 0xFF9F, 0x2726, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2726, 0xFF9F, 0xFF65),
-            @(0xFF65, 0xFF9F, 0x2727, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2726, 0xFF9F, 0xFF65),
-            @(0xFF65, 0xFF9F, 0x2726, 0xFF08, 0x25D5, 0x1D17, 0x25D5, 0xFF09, 0x2727, 0xFF9F, 0xFF65)
-        ),
-        @(  # ♡ヽ（♥‿♥）ノ♡  Heartthrob
-            @(0x2661, 0x30FD, 0xFF08, 0x2665, 0x203F, 0x2665, 0xFF09, 0x30CE, 0x2661),
-            @(0x2665, 0x30FE, 0xFF08, 0x2661, 0x203F, 0x2661, 0xFF09, 0x30CE, 0x2665),
-            @(0x2661, 0x30FE, 0xFF08, 0x2665, 0x203F, 0x2665, 0xFF09, 0x30CE, 0x2661),
-            @(0x2665, 0x30FD, 0xFF08, 0x2661, 0x203F, 0x2661, 0xFF09, 0x30CE, 0x2665)
-        ),
-        @(  # ✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧  Bliss
-            @(0x2727, 0xFF9F, 0xFF08, 0xFF89, 0x2267, 0x2207, 0x2266, 0xFF09, 0xFF89, 0xFF9F, 0x2727),
-            @(0x2726, 0xFF9F, 0xFF08, 0xFF89, 0x2267, 0x25BD, 0x2266, 0xFF09, 0xFF89, 0xFF9F, 0x2726),
-            @(0x2727, 0xFF9F, 0xFF08, 0xFF89, 0x2267, 0x2207, 0x2266, 0xFF09, 0xFF89, 0xFF9F, 0x2726),
-            @(0x2726, 0xFF9F, 0xFF08, 0xFF89, 0x2267, 0x25BD, 0x2266, 0xFF09, 0xFF89, 0xFF9F, 0x2727)
-        ),
-        @(  # ♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪  Serenade
-            @(0x266A, 0xFF9F, 0xFF65, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0xFF65, 0xFF9F, 0x266A),
-            @(0x266C, 0xFF9F, 0xFF65, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0xFF65, 0xFF9F, 0x266C),
-            @(0x2669, 0xFF9F, 0xFF65, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0xFF65, 0xFF9F, 0x2669),
-            @(0x266C, 0xFF9F, 0xFF65, 0xFF08, 0x0E51, 0x1D16, 0x25E1, 0x1D16, 0x0E51, 0xFF09, 0xFF65, 0xFF9F, 0x266C)
-        ),
-        @(  # ･ﾟ✧（￣ヘ￣）✧ﾟ･  Monarch
-            @(0xFF65, 0xFF9F, 0x2727, 0xFF08, 0xFFE3, 0x30D8, 0xFFE3, 0xFF09, 0x2727, 0xFF9F, 0xFF65),
-            @(0xFF65, 0xFF9F, 0x2726, 0xFF08, 0xFFE3, 0x30D8, 0xFFE3, 0xFF09, 0x2726, 0xFF9F, 0xFF65),
-            @(0xFF65, 0xFF9F, 0x2727, 0xFF08, 0xFFE3, 0x30D8, 0xFFE3, 0xFF09, 0x2726, 0xFF9F, 0xFF65),
-            @(0xFF65, 0xFF9F, 0x2726, 0xFF08, 0xFFE3, 0x30D8, 0xFFE3, 0xFF09, 0x2727, 0xFF9F, 0xFF65)
-        ),
-        @(  # ✦ﾟ（╬◣_◢）ﾟ✦  Wrath
-            @(0x2726, 0xFF9F, 0xFF08, 0x256C, 0x25E3, 0x005F, 0x25E2, 0xFF09, 0xFF9F, 0x2726),
-            @(0x2727, 0xFF9F, 0xFF08, 0x256C, 0x25E2, 0x005F, 0x25E3, 0xFF09, 0xFF9F, 0x2727),
-            @(0x2726, 0xFF9F, 0xFF08, 0x256C, 0x25E2, 0x005F, 0x25E3, 0xFF09, 0xFF9F, 0x2726),
-            @(0x2727, 0xFF9F, 0xFF08, 0x256C, 0x25E3, 0x005F, 0x25E2, 0xFF09, 0xFF9F, 0x2727)
-        ),
-        @(  # ≪✧（╬▼_▼）✧≫  Overlord
-            @(0x226A, 0x2727, 0xFF08, 0x256C, 0x25BC, 0x005F, 0x25BC, 0xFF09, 0x2727, 0x226B),
-            @(0x226A, 0x2726, 0xFF08, 0x256C, 0x25BC, 0x005F, 0x25BC, 0xFF09, 0x2726, 0x226B),
-            @(0x226A, 0x2727, 0xFF08, 0x256C, 0x25BC, 0x005F, 0x25BC, 0xFF09, 0x2726, 0x226B),
-            @(0x226A, 0x2726, 0xFF08, 0x256C, 0x25BC, 0x005F, 0x25BC, 0xFF09, 0x2727, 0x226B)
-        )
-    )
-    dev = @(
-        @(  # ｛・ω・｝  Root
-            @(0xFF5B, 0x30FB, 0x03C9, 0x30FB, 0xFF5D),
-            @(0xFF5B, 0xFF0D, 0x03C9, 0xFF0D, 0xFF5D)
-        ),
-        @(  # ⟨◕ᴗ◕⟩  Sudo
-            @(0x27E8, 0x25D5, 0x1D17, 0x25D5, 0x27E9),
-            @(0x27E8, 0x25E0, 0x1D17, 0x25E0, 0x27E9)
-        ),
-        @(  # ［◉_◉］  Kernel
-            @(0xFF3B, 0x25C9, 0x005F, 0x25C9, 0xFF3D),
-            @(0xFF3B, 0x25C9, 0x2038, 0x25C9, 0xFF3D)
-        ),
-        @(  # ⟨◣_◢⟩  Daemon
-            @(0x27E8, 0x25E3, 0x005F, 0x25E2, 0x27E9),
-            @(0x27E8, 0x25E2, 0x005F, 0x25E3, 0x27E9)
-        )
-    )
-}
-
-# One short English name per face, in table order.
-$KaoNames = @{
-    common = @('Kitten', 'Droopy', 'Snooze', 'Whiskers', 'Grin', 'Smiley', 'Side-eye', 'Meh', 'Blank', 'Smirk', 'Scowl', 'Deadpan')
-    uncommon = @('Giggle', 'Rosy', 'Beam', 'Bright', 'Squee', 'Wink', 'Stare', 'Eyeroll', 'Half-lid', 'Hamster', 'Sly', 'Shifty')
-    rare = @('Twinkle', 'Cheer', 'Glow', 'Hooray', 'Starry', 'Wave', 'Smug', 'Shades', 'Brat', 'Knowing', 'Starstruck', 'Gunslinger')
-    unique = @('Superstar', 'Jubilee', 'Lovestruck', 'Dazzle', 'Hurrah', 'Boss', 'Fury', 'Skeptic', 'Villain', 'Grit')
-    legend = @('Halo', 'Heartthrob', 'Bliss', 'Serenade', 'Monarch', 'Wrath', 'Overlord')
-    dev = @('Root', 'Sudo', 'Kernel', 'Daemon')
-}
+$MascotTiers = @('common', 'uncommon', 'rare', 'unique', 'legend')
 
 # The mascot only speaks while a turn runs, right after one ends, and when
 # something is waiting on you. The rest of the time it just sits there.
@@ -559,20 +322,50 @@ $TalkNotify = @{
 }
 $TalkError = @('앗...', '실패했어요...')
 
-# Builds one frame from its code points. Every glyph is inside the BMP, so a
-# plain [char] cast is both correct and cheap enough to run every refresh.
-function New-Kao {
-    param([int[]]$Cp)
-    $text = ''
-    foreach ($c in $Cp) { $text += [char]$c }
-    return $text
+# The face string of a tier, or $null for a tier that does not exist.
+function Get-Pool {
+    param([string]$Tier)
+    switch ($Tier) {
+        'common'   { return $KaoCommon }
+        'uncommon' { return $KaoUncommon }
+        'rare'     { return $KaoRare }
+        'unique'   { return $KaoUnique }
+        'legend'   { return $KaoLegend }
+        'dev'      { return $KaoDev }
+    }
+    return $null
+}
+
+function Get-Names {
+    param([string]$Tier)
+    switch ($Tier) {
+        'common'   { return $NameCommon }
+        'uncommon' { return $NameUncommon }
+        'rare'     { return $NameRare }
+        'unique'   { return $NameUnique }
+        'legend'   { return $NameLegend }
+        'dev'      { return $NameDev }
+    }
+    return ''
+}
+
+# The faces of a tier as an array of frame strings ("frame#frame").
+function Get-Faces {
+    param([string]$Tier)
+    $pool = Get-Pool $Tier
+    if ([string]::IsNullOrEmpty($pool)) { return @() }
+    return ,($pool.Split('|'))
+}
+
+function Get-Frames {
+    param([string]$Face)
+    return ,($Face.Split('#'))
 }
 
 # The per-machine key. mascot-hook.ps1 creates it once with a CSPRNG; no key
 # means no mascot, which is also what a fresh install looks like.
 function Get-GachaKey {
-    $file = Join-Path $CacheDir '.gacha-key'
-    try { return [System.IO.File]::ReadAllText($file).Trim() } catch { return '' }
+    try { return [System.IO.File]::ReadAllText("$CacheDir\.gacha-key").Trim() } catch { return '' }
 }
 
 # HMAC-SHA256 of a message under the machine key, as lowercase hex.
@@ -581,10 +374,10 @@ function Get-Hmac {
 
     $hmac = $null
     try {
-        $hmac = New-Object System.Security.Cryptography.HMACSHA256
+        $hmac = [System.Security.Cryptography.HMACSHA256]::new()
         $hmac.Key = [Text.Encoding]::UTF8.GetBytes($Key)
         $bytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($Message))
-        return (-join ($bytes | ForEach-Object { $_.ToString('x2') }))
+        return ([BitConverter]::ToString($bytes) -replace '-', '').ToLower()
     } catch {
         return ''
     } finally {
@@ -602,7 +395,7 @@ function Test-DevKey {
     try {
         $sha = [System.Security.Cryptography.SHA256]::Create()
         $bytes = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Key))
-        $hex = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+        $hex = ([BitConverter]::ToString($bytes) -replace '-', '').ToLower()
     } catch {
         return $false
     } finally {
@@ -616,11 +409,10 @@ function Test-DevKey {
 
 # The roll on file: @{ Date; Epoch; Tier; Index } or $null when there is none.
 # A bad signature reads as no roll at all, so an edited file loses the mascot
-# rather than granting a better one.
+# rather than granting a better one. Index counts from 0, as in the sh version.
 function Get-SavedRoll {
-    $file = Join-Path $CacheDir 'gacha.txt'
     $raw = ''
-    try { $raw = [System.IO.File]::ReadAllText($file).Trim() } catch { return $null }
+    try { $raw = [System.IO.File]::ReadAllText("$CacheDir\gacha.txt").Trim() } catch { return $null }
     if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
 
     $tok = $raw -split '\s+'
@@ -630,11 +422,15 @@ function Get-SavedRoll {
 
     $want = Get-Hmac $key "roll|v1|$($tok[1])|$($tok[2])|$($tok[3])|$($tok[4])"
     if ($want -eq '' -or $want -ne $tok[5]) { return $null }
-    if ($null -eq $KaoTable[$tok[3]]) { return $null }
+
+    $faces = Get-Faces $tok[3]
+    $idx = 0
+    if (-not [int]::TryParse($tok[4], [ref]$idx)) { return $null }
+    if ($faces.Count -eq 0 -or $idx -lt 0 -or $idx -ge $faces.Count) { return $null }
 
     $epoch = Get-Epoch $tok[2]
     if ($null -eq $epoch) { $epoch = 0 }
-    return @{ Date = $tok[1]; Epoch = $epoch; Tier = $tok[3]; Index = [int]$tok[4] }
+    return @{ Date = $tok[1]; Epoch = $epoch; Tier = $tok[3]; Index = $idx }
 }
 
 # One roll per calendar day. A stored roll stamped in the future means the
@@ -644,7 +440,7 @@ function Test-CanRoll {
 
     if ($null -eq $Saved) { return $true }
     $today = ''
-    try { $today = (Get-Date).ToString('yyyyMMdd') } catch { return $false }
+    try { $today = [DateTime]::Now.ToString('yyyyMMdd') } catch { return $false }
     if ($Saved.Date -eq $today) { return $false }
     if ($Now -gt 0 -and $Saved.Epoch -gt 0 -and $Now -lt $Saved.Epoch) { return $false }
     return $true
@@ -663,10 +459,10 @@ function Invoke-GachaRoll {
     # looked at while working on them. Any other key is turned away here.
     if ($WantTier -ne '') {
         if (-not (Test-DevKey $key)) { return @{ Denied = $true } }
-        if ($null -eq $KaoTable[$WantTier]) { return @{ BadTier = $true } }
+        if ($null -eq (Get-Pool $WantTier)) { return @{ BadTier = $true } }
     }
 
-    $raw = New-Object byte[] 8
+    $raw = [byte[]]::new(8)
     $rng = $null
     try {
         $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
@@ -707,22 +503,19 @@ function Invoke-GachaRoll {
     }
     if ($WantTier -ne '') { $tier = $WantTier }
 
-    $pool = $KaoTable[$tier]
+    $faces = Get-Faces $tier
     $idx = 0
-    if ($pool.Count -gt 0) { $idx = [int]($n2 % $pool.Count) }
+    if ($faces.Count -gt 0) { $idx = [int]($n2 % $faces.Count) }
 
-    $today = (Get-Date).ToString('yyyyMMdd')
+    $today = [DateTime]::Now.ToString('yyyyMMdd')
     $stamp = $Now
     if ($stamp -le 0) { $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
     $sig = Get-Hmac $key "roll|v1|$($today)|$($stamp)|$($tier)|$($idx)"
     if ($sig -eq '') { return $null }
 
     try {
-        if (-not (Test-Path -LiteralPath $CacheDir)) {
-            New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null
-        }
-        $file = Join-Path $CacheDir 'gacha.txt'
-        [System.IO.File]::WriteAllText($file, "v1 $($today) $($stamp) $($tier) $($idx) $($sig)")
+        [void][System.IO.Directory]::CreateDirectory($CacheDir)
+        [System.IO.File]::WriteAllText("$CacheDir\gacha.txt", "v1 $($today) $($stamp) $($tier) $($idx) $($sig)")
     } catch {
         return $null
     }
@@ -743,37 +536,52 @@ function Get-TierColor {
     }
 }
 
-# Paints every character its own hue along the rainbow and drifts the whole
-# ramp one step per animation tick, so the color flows across the text.
+# The ramp of a palette as an array of SGR colour parameters, taken from the
+# precomputed tables above (24-bit or 256-colour, per LegendTrueColor).
+$script:RampCache = @{}
+function Get-Ramp {
+    param([string]$Name)
+
+    if ($script:RampCache.ContainsKey($Name)) { return $script:RampCache[$Name] }
+    $table = $Ramp256
+    if ($LegendTrueColor) { $table = $RampTrue }
+    $codes = [string]$table[$Name]
+    if ([string]::IsNullOrEmpty($codes)) { $codes = [string]$table['amethyst'] }
+    $ramp = $codes.Split('|')
+    $script:RampCache[$Name] = $ramp
+    return $ramp
+}
+
+# Paints every character its own colour along the ramp and slides the whole
+# band GradientSpeed cells per second, so the colour flows across the text.
 function Get-GradientText {
-    param([string]$Text, [int[]]$Ramp)
+    param([string]$Text, [string]$PaletteName, [int]$Offset = -1)
 
-    if ([string]::IsNullOrEmpty($Reset)) { return $Text }
-    if ($null -eq $Ramp -or $Ramp.Count -eq 0) { $Ramp = $Palettes.amethyst }
-    $n = $Ramp.Count
-    if ($n -le 0 -or $Text.Length -eq 0) { return $Text }
+    if ([string]::IsNullOrEmpty($Reset) -or $Text.Length -eq 0) { return $Text }
+    $ramp = Get-Ramp $PaletteName
+    $n = $ramp.Count
 
-    # GradientShift 는 한 번 그릴 때 띠를 몇 칸 미는지. 스크립트가 다시 불리는
-    # 주기는 refreshInterval 이 정하므로, 색을 빠르게 흐르게 하려면 이 값을 올린다.
-    $step = 0
-    if ($Now -gt 0) { $step = [int]((($Now / $AnimSecs) * $GradientShift) % $n) }
-
-    $out = ''
-    for ($i = 0; $i -lt $Text.Length; $i++) {
-        $idx = ($step + $i) % $n
-        $out += "$($Esc)[1;38;5;$($Ramp[$idx])m$($Text[$i])"
+    $step = $Offset
+    if ($step -lt 0) {
+        $step = 0
+        if ($Now -gt 0) { $step = [int]([Math]::Floor($Now * $GradientSpeed) % $n) }
     }
-    return $out
+
+    $sb = [System.Text.StringBuilder]::new()
+    for ($i = 0; $i -lt $Text.Length; $i++) {
+        [void]$sb.Append($Esc).Append('[1;').Append($ramp[($step + $i) % $n]).Append('m').Append($Text[$i])
+    }
+    return $sb.ToString()
 }
 
 # Wraps text in the right paint for its tier: the flowing gradient is reserved
 # for legend; every other tier takes one flat color.
 function Write-TierText {
-    param([string]$Tier, [string]$Text, [int]$Index = 0)
+    param([string]$Tier, [string]$Text, [int]$Index = 0, [int]$Offset = -1)
 
     if ($Tier -eq 'legend') {
         $name = $LegendPalettes[$Index % $LegendPalettes.Count]
-        return "$(Get-GradientText $Text $Palettes[$name])$($Reset)"
+        return "$(Get-GradientText $Text $name $Offset)$($Reset)"
     }
     return "$(Get-TierColor $Tier)$($Text)$($Reset)"
 }
@@ -802,9 +610,8 @@ function Get-Mascot {
     $state = 'idle'
     $stamp = 0
     if (-not [string]::IsNullOrWhiteSpace($SidKey)) {
-        $file = Join-Path $CacheDir "mascot-$($SidKey).txt"
         $raw = ''
-        try { $raw = [System.IO.File]::ReadAllText($file).Trim() } catch { $raw = '' }
+        try { $raw = [System.IO.File]::ReadAllText("$CacheDir\mascot-$($SidKey).txt").Trim() } catch { $raw = '' }
         if (-not [string]::IsNullOrWhiteSpace($raw)) {
             $tok = $raw -split '\s+'
             $state = $tok[0]
@@ -817,9 +624,10 @@ function Get-Mascot {
 
     $draw = Get-SavedRoll
     if ($state -eq 'error') {
+        $frames = Get-Frames $KaoError
         $frame = 0
-        if ($Now -gt 0) { $frame = [int](($Now / $AnimSecs) % $KaoError.Count) }
-        $text = New-Kao $KaoError[$frame]
+        if ($Now -gt 0) { $frame = [int](($Now / $AnimSecs) % $frames.Count) }
+        $text = $frames[$frame]
         $talk = Get-Talk $TalkError $stamp
         if ($talk -ne '') { $text += " $($talk)" }
         return "$($CCrit)$($text)$($Reset)"
@@ -827,12 +635,13 @@ function Get-Mascot {
     if ($null -eq $draw) { return '' }
 
     $working = ($state -eq 'working')
-    $face = $KaoTable[$draw.Tier][$draw.Index]
+    $faces = Get-Faces $draw.Tier
+    $frames = Get-Frames $faces[$draw.Index]
     $frame = 0
-    if ($working -and $Now -gt 0 -and $face.Count -gt 0) {
-        $frame = [int](($Now / $AnimSecs) % $face.Count)
+    if ($working -and $Now -gt 0 -and $frames.Count -gt 0) {
+        $frame = [int](($Now / $AnimSecs) % $frames.Count)
     }
-    $text = New-Kao $face[$frame]
+    $text = $frames[$frame]
 
     # Speaks while working, for a short while after finishing, and whenever
     # something is waiting on you. Otherwise it stays quiet.
@@ -861,17 +670,14 @@ function Show-Draw {
         common = '커먼'; uncommon = '언커먼'; rare = '레어'
         unique = '유니크'; legend = '레전드'; dev = 'DEV'
     }[$Draw.Tier]
-    $face = $KaoTable[$Draw.Tier][$Draw.Index]
+    $faces = Get-Faces $Draw.Tier
+    $frames = Get-Frames $faces[$Draw.Index]
+    $names = (Get-Names $Draw.Tier).Split('|')
     $name = ''
-    try { $name = [string]$KaoNames[$Draw.Tier][$Draw.Index] } catch { $name = '' }
+    if ($Draw.Index -lt $names.Count) { $name = $names[$Draw.Index] }
 
-    $frames = @()
-    foreach ($f in $face) { $frames += (New-Kao $f) }
-
-    $total = $KaoTable[$Draw.Tier].Count
-
-    Write-Output ("  {0}  {1}  [{2} {3}/{4}]" -f (Write-TierText $Draw.Tier $frames[0] $Draw.Index),
-        $name, $label, ($Draw.Index + 1), $total)
+    Write-Output ("  {0}  {1}  [{2} {3}/{4}]" -f (Write-TierText $Draw.Tier $frames[0] $Draw.Index 0),
+        $name, $label, ($Draw.Index + 1), $faces.Count)
     Write-Output ("  표정 {0}장  {1}" -f $frames.Count, ($frames -join '  '))
 }
 
@@ -965,44 +771,95 @@ if ($Today) {
     exit 0
 }
 
+# ---- payload fields --------------------------------------------------------
+# The handful of fields this line needs are pulled with regular expressions
+# rather than ConvertFrom-Json, which alone costs about 100 ms per redraw.
+
+# A string field: the first "key": "value" in the payload, JSON escapes undone.
+function Get-JsonStr {
+    param([string]$Json, [string]$Key)
+    $m = [regex]::Match($Json, '"' + [regex]::Escape($Key) + '"\s*:\s*"((?:[^"\\]|\\.)*)"')
+    if (-not $m.Success) { return $null }
+    $v = $m.Groups[1].Value
+    if ($v.IndexOf('\') -ge 0) {
+        $v = [regex]::Replace($v, '\\u([0-9a-fA-F]{4})', { param($mm) [string][char][Convert]::ToInt32($mm.Groups[1].Value, 16) })
+        $v = $v.Replace('\"', '"').Replace('\/', '/').Replace('\\', '\')
+    }
+    return $v
+}
+
+# The body of "key": { ... }, found by scanning braces so nesting of any depth
+# is fine, with the nested objects blanked out so a field lookup inside cannot
+# land in one of them. (No string value in the payload contains a brace.)
+function Get-JsonObj {
+    param([string]$Json, [string]$Key)
+    $at = $Json.IndexOf('"' + $Key + '"')
+    if ($at -lt 0) { return $null }
+    $open = $Json.IndexOf('{', $at)
+    if ($open -lt 0) { return $null }
+    $colon = $Json.IndexOf(':', $at)
+    if ($colon -lt 0 -or $colon -gt $open) { return $null }
+    $depth = 0
+    $pos = $open
+    while ($pos -lt $Json.Length) {
+        $nextOpen = $Json.IndexOf('{', $pos)
+        $nextClose = $Json.IndexOf('}', $pos)
+        if ($nextClose -lt 0) { return $null }
+        if ($nextOpen -ge 0 -and $nextOpen -lt $nextClose) {
+            $depth++
+            $pos = $nextOpen + 1
+        } else {
+            $depth--
+            $pos = $nextClose + 1
+            if ($depth -eq 0) {
+                $body = $Json.Substring($open + 1, $nextClose - $open - 1)
+                if ($body.IndexOf('{') -ge 0) { $body = [regex]::Replace($body, '\{[^{}]*\}', '') }
+                return $body
+            }
+        }
+    }
+    return $null
+}
+
+# A numeric field inside an already extracted object body.
+function Get-JsonNum {
+    param([string]$Body, [string]$Key)
+    if ($null -eq $Body) { return $null }
+    $m = [regex]::Match($Body, '"' + [regex]::Escape($Key) + '"\s*:\s*(-?[0-9][0-9.]*)')
+    if (-not $m.Success) { return $null }
+    return $m.Groups[1].Value
+}
+
 try {
     $raw = $null
     try { $raw = [Console]::In.ReadToEnd() } catch { $raw = $null }
-
-    $data = $null
-    if (-not [string]::IsNullOrWhiteSpace($raw)) {
-        try { $data = $raw | ConvertFrom-Json } catch { $data = $null }
-    }
+    if ($null -eq $raw) { $raw = '' }
 
     $dir = $null
-    try { $dir = $data.workspace.current_dir } catch { }
-    if ([string]::IsNullOrWhiteSpace($dir)) {
-        try { $dir = $data.cwd } catch { }
-    }
+    $workspace = Get-JsonObj $raw 'workspace'
+    if ($null -ne $workspace) { $dir = Get-JsonStr $workspace 'current_dir' }
+    if ([string]::IsNullOrWhiteSpace($dir)) { $dir = Get-JsonStr $raw 'cwd' }
 
     $model = $null
-    try { $model = $data.model.display_name } catch { }
+    $modelObj = Get-JsonObj $raw 'model'
+    if ($null -ne $modelObj) { $model = Get-JsonStr $modelObj 'display_name' }
     if ([string]::IsNullOrWhiteSpace($model)) { $model = '-' }
 
+    # One git call answers everything: repository root, branch, and the short
+    # hash for a detached HEAD. A missing git or a directory outside any
+    # repository both fall through with nothing set.
     $branch = ''
     $root = ''
-    $hasGit = [bool](Get-Command git -ErrorAction SilentlyContinue)
-    if (-not [string]::IsNullOrWhiteSpace($dir) -and $hasGit -and (Test-Path -LiteralPath $dir)) {
+    if (-not [string]::IsNullOrWhiteSpace($dir) -and [System.IO.Directory]::Exists($dir)) {
         try {
-            $top = & git -C "$dir" rev-parse --show-toplevel 2>$null
-            if (-not [string]::IsNullOrWhiteSpace($top)) {
-                $root = ([string]($top | Select-Object -First 1)).Trim()
+            $lines = @(& git -C "$dir" rev-parse --show-toplevel --abbrev-ref HEAD --short HEAD 2>$null)
+            if ($lines.Count -ge 1 -and -not [string]::IsNullOrWhiteSpace([string]$lines[0])) {
+                $root = ([string]$lines[0]).Trim()
             }
-
-            $b = & git -C "$dir" branch --show-current 2>$null
-            if ([string]::IsNullOrWhiteSpace($b)) {
-                $b = & git -C "$dir" rev-parse --abbrev-ref HEAD 2>$null
-                if ("$b".Trim() -eq 'HEAD') {
-                    $b = & git -C "$dir" rev-parse --short HEAD 2>$null
-                }
-            }
-            if (-not [string]::IsNullOrWhiteSpace($b)) {
-                $branch = ([string]($b | Select-Object -First 1)).Trim()
+            if ($lines.Count -ge 2) {
+                $b = ([string]$lines[1]).Trim()
+                if ($b -eq 'HEAD' -and $lines.Count -ge 3) { $b = ([string]$lines[2]).Trim() }
+                if (-not [string]::IsNullOrWhiteSpace($b)) { $branch = $b }
             }
         } catch { }
     }
@@ -1025,18 +882,16 @@ try {
         $cBranch = $CGitOther
     }
 
-    $ctxPct = $null
-    try { $ctxPct = Get-Pct $data.context_window.used_percentage } catch { }
+    $ctxPct = Get-Pct (Get-JsonNum (Get-JsonObj $raw 'context_window') 'used_percentage')
 
-    $fiveU = $null; $fiveR = $null
-    $sevenU = $null; $sevenR = $null
-    try { $fiveU = Get-Pct $data.rate_limits.five_hour.used_percentage } catch { }
-    try { $fiveR = Get-Epoch $data.rate_limits.five_hour.resets_at } catch { }
-    try { $sevenU = Get-Pct $data.rate_limits.seven_day.used_percentage } catch { }
-    try { $sevenR = Get-Epoch $data.rate_limits.seven_day.resets_at } catch { }
+    $five = Get-JsonObj $raw 'five_hour'
+    $seven = Get-JsonObj $raw 'seven_day'
+    $fiveU = Get-Pct (Get-JsonNum $five 'used_percentage')
+    $fiveR = Get-Epoch (Get-JsonNum $five 'resets_at')
+    $sevenU = Get-Pct (Get-JsonNum $seven 'used_percentage')
+    $sevenR = Get-Epoch (Get-JsonNum $seven 'resets_at')
 
-    $sessionId = $null
-    try { $sessionId = $data.session_id } catch { }
+    $sessionId = Get-JsonStr $raw 'session_id'
 
     # ---- cross-session rate-limit sync -------------------------------------
     # The payload's rate_limits are a per-session snapshot frozen at that
@@ -1047,11 +902,7 @@ try {
     # reading wins, because account usage only rises while a window is open.
     #
     # Cache line format (one per session): "v1 <5h%> <5h_reset> <7d%> <7d_reset>"
-    try {
-        if (-not (Test-Path -LiteralPath $CacheDir)) {
-            New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null
-        }
-    } catch { }
+    try { [void][System.IO.Directory]::CreateDirectory($CacheDir) } catch { }
 
     $sidKey = ''
     if (-not [string]::IsNullOrWhiteSpace([string]$sessionId)) {
@@ -1059,25 +910,38 @@ try {
         if ($sidKey.Length -gt 8) { $sidKey = $sidKey.Substring(0, 8) }
     }
 
-    if ($null -ne $fiveU -and $sidKey -ne '' -and (Test-Path -LiteralPath $CacheDir)) {
+    if ($null -ne $fiveU -and $sidKey -ne '' -and [System.IO.Directory]::Exists($CacheDir)) {
         try {
             $fr = '-'; if ($null -ne $fiveR) { $fr = [string]$fiveR }
             $su = '-'; if ($null -ne $sevenU) { $su = [string]$sevenU }
             $sr = '-'; if ($null -ne $sevenR) { $sr = [string]$sevenR }
-            $line = "v1 $fiveU $fr $su $sr"
             [System.IO.File]::WriteAllText(
-                (Join-Path $CacheDir "rl-$sidKey.txt"),
-                $line + "`n",
-                (New-Object System.Text.UTF8Encoding($false)))
+                "$CacheDir\rl-$sidKey.txt",
+                "v1 $fiveU $fr $su $sr`n",
+                ([System.Text.UTF8Encoding]::new($false)))
         } catch { }
 
         # Entries from long-dead sessions stop mattering once their window
-        # closes; sweep anything untouched for two days.
+        # closes; sweep anything untouched for two days. The sweep itself runs
+        # at most once an hour, tracked by a marker file, so it costs nothing
+        # on an ordinary redraw.
         try {
-            $cutoff = (Get-Date).AddHours(-48)
-            Get-ChildItem -LiteralPath $CacheDir -Include 'rl-*.txt', 'mascot-*.txt' -Recurse |
-                Where-Object { $_.LastWriteTime -lt $cutoff } |
-                Remove-Item -Force -Confirm:$false
+            $marker = "$CacheDir\.swept"
+            $due = $true
+            if ([System.IO.File]::Exists($marker)) {
+                $due = ([DateTime]::UtcNow - [System.IO.File]::GetLastWriteTimeUtc($marker)).TotalHours -ge 1
+            }
+            if ($due) {
+                $cutoff = [DateTime]::UtcNow.AddHours(-48)
+                foreach ($pattern in @('rl-*.txt', 'mascot-*.txt')) {
+                    foreach ($f in [System.IO.Directory]::GetFiles($CacheDir, $pattern)) {
+                        if ([System.IO.File]::GetLastWriteTimeUtc($f) -lt $cutoff) {
+                            [System.IO.File]::Delete($f)
+                        }
+                    }
+                }
+                [System.IO.File]::WriteAllText($marker, '')
+            }
         } catch { }
     }
 
@@ -1085,9 +949,9 @@ try {
     $best7U = $sevenU; $best7R = 0; if ($null -ne $sevenR) { $best7R = $sevenR }
 
     try {
-        foreach ($f in (Get-ChildItem -LiteralPath $CacheDir -Filter 'rl-*.txt' -ErrorAction SilentlyContinue)) {
+        foreach ($f in [System.IO.Directory]::GetFiles($CacheDir, 'rl-*.txt')) {
             $parts = ''
-            try { $parts = [System.IO.File]::ReadAllText($f.FullName).Trim() } catch { continue }
+            try { $parts = [System.IO.File]::ReadAllText($f).Trim() } catch { continue }
             $tok = $parts -split '\s+'
             if ($tok.Count -lt 5 -or $tok[0] -ne 'v1') { continue }
 
@@ -1124,7 +988,7 @@ try {
         if ($mascot -ne '') { $out += " $($mascot)" }
     }
 
-    Write-Output $out
+    [Console]::Out.WriteLine($out)
 } catch {
-    Write-Output 'DIR - | GIT - | MODEL - | CTX --% | 5H --%'
+    [Console]::Out.WriteLine('DIR - | GIT - | MODEL - | CTX --% | 5H --%')
 }
