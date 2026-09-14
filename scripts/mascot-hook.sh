@@ -7,6 +7,7 @@
 #   UserPromptSubmit -> mascot-hook.sh working
 #   Stop             -> mascot-hook.sh done
 #   StopFailure      -> mascot-hook.sh error
+#   Notification     -> mascot-hook.sh notify
 #
 # It writes one small file and prints nothing, so it can never disturb a turn.
 # Every failure path exits 0 for the same reason. No jq needed: one field is
@@ -14,7 +15,7 @@
 
 state="${1:-done}"
 case "$state" in
-    working|done|error) ;;
+    working|done|error|notify) ;;
     *) exit 0 ;;
 esac
 
@@ -44,7 +45,8 @@ if [ ! -f "$KEY_FILE" ]; then
         key=$(openssl rand -hex 32 2>/dev/null)
     elif [ -r /dev/urandom ]; then
         key=$(od -An -tx1 -N32 /dev/urandom 2>/dev/null | tr -d ' 
-')
+
+')
     fi
     if [ -n "$key" ]; then
         key_tmp="$KEY_FILE.tmp.$$"

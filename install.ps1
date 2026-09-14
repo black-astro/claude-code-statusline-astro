@@ -113,6 +113,7 @@ if (-not $NoMascot) {
     Set-MascotHook $data.hooks 'UserPromptSubmit' 'working'
     Set-MascotHook $data.hooks 'Stop' 'done'
     Set-MascotHook $data.hooks 'StopFailure' 'error'
+    Set-MascotHook $data.hooks 'Notification' 'notify'
 }
 
 # settings.json must be UTF-8 without a BOM - a BOM breaks JSON.parse.

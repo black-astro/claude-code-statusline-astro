@@ -6,16 +6,18 @@
 # Set NO_COLOR=1 to strip the ANSI colors.
 
 # Run with no arguments (the way Claude Code calls it) to print the status line.
+#   -Roll      roll today's mascot (once a day) and exit
+#   -Today     print the mascot you are currently wearing and exit
 #   -Version   print the version and exit
-#   -Today     print today's mascot draw and exit
 #   -Help      print a short usage summary and exit
 param(
-    [switch]$Version,
+    [switch]$Roll,
     [switch]$Today,
+    [switch]$Version,
     [switch]$Help
 )
 
-$StatuslineVersion = '1.3.0'
+$StatuslineVersion = '1.4.0'
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -49,6 +51,9 @@ $ShowMascotTalk = $true
 # Seconds per animation step. Claude Code only redraws every refreshInterval,
 # so anything below that value changes nothing - keep the two in step.
 $AnimSecs = 3
+# How long after a turn ends the mascot keeps talking. Past this it goes quiet
+# until the next turn, so an idle terminal is not left with a stale sentence.
+$TalkWindowSecs = 60
 # Rarity odds in per-mille, highest first. They must total 1000.
 $MascotOdds = @{ common = 400; uncommon = 350; rare = 180; unique = 60; legend = 10 }
 
@@ -217,13 +222,14 @@ function Get-LeafName {
 }
 
 # ---- mascot ---------------------------------------------------------------
-# The face is the day's draw, derived from HMAC-SHA256(machine key, date) and
-# never stored, so it is fixed for the whole day and identical on every redraw.
-# The key is created once by mascot-hook.ps1.
+# The face is whatever the last roll produced. Rolls happen once a day and
+# only when asked for (statusline.ps1 -Roll); nothing here changes the face on
+# its own. The result is signed with the machine key, so the stored tier and
+# face cannot be edited into something rarer.
 #
 # Each face carries frames of one expression, all the same width so the line
 # never jitters. The frames advance while a turn runs and settle on the first
-# one when it ends. Legend and dev also cycle their color on every refresh.
+# one when it ends. Legend additionally shimmers through a flowing gradient.
 #
 # Faces are code points, like the bar cells. The spoken lines are literals -
 # Hangul written as code points would be unreadable - so this file carries a
@@ -236,7 +242,7 @@ $KaoError = @(
 
 $MascotTiers = @('common', 'uncommon', 'rare', 'unique', 'legend')
 
-# Legend and dev cycle through these instead of taking one fixed color.
+# The legend gradient walks this ramp, one hue per character.
 $RainbowColors = @(196, 202, 208, 214, 220, 190, 118, 46, 48, 51, 45, 39, 63, 99, 129, 201)
 
 # Rarity -> faces -> frames.
@@ -481,15 +487,31 @@ $KaoTable = @{
     )
 }
 
-# What the mascot says once a turn is done. The higher the rarity, the more
-# of an actual sentence it manages.
-$TalkTable = @{
+# The mascot only speaks while a turn runs, right after one ends, and when
+# something is waiting on you. The rest of the time it just sits there.
+$TalkWork = @{
+    common = @('끙...', '우우', '낑낑', '웅...')
+    uncommon = @('하는 중!', '조금만!', '열일 중!', '가는 중!')
+    rare = @('작업 중이에요', '조금만 기다려요', '거의 다 왔어요')
+    unique = @('처리하고 있어요!', '조금만 기다려 주세요!', '열심히 하는 중이에요!')
+    legend = @('작업을 진행하고 있습니다!', '곧 마무리됩니다, 잠시만요!')
+    dev = @('빌드 도는 중.', '컴파일 중.', '테스트 도는 중.')
+}
+$TalkDone = @{
     common = @('왕!', '냥!', '뿌!', '삐약!', '꽥!', '음냐')
     uncommon = @('왕왕!', '다했다!', '끝!', '됐다!', '오케이!', '히히')
     rare = @('다 됐어요', '끝났어요', '완료했어요', '해냈어요!', '준비 끝!')
     unique = @('작업 완료했어요!', '다 끝냈습니다!', '깔끔하게 끝냈어요!', '확인해 보세요!')
     legend = @('요청하신 작업 모두 완료했습니다!', '전부 끝냈습니다, 확인 부탁드려요!', '작업을 성공적으로 마쳤습니다!')
     dev = @('빌드 통과.', '커밋하시죠.', '배포 준비 완료.', '테스트 전부 초록불.')
+}
+$TalkNotify = @{
+    common = @('앙?', '웅?', '왕?')
+    uncommon = @('저기요!', '잠깐만요!', '봐주세요!')
+    rare = @('확인해 주세요', '봐주셔야 해요')
+    unique = @('확인 부탁해요!', '잠시 봐주세요!')
+    legend = @('확인 부탁드립니다!', '잠시 확인해 주세요!')
+    dev = @('입력 대기 중.', '확인 요망.')
 }
 $TalkError = @('앗...', '실패했어요...')
 
@@ -502,12 +524,28 @@ function New-Kao {
     return $text
 }
 
-# The per-machine key the draw is derived from. Read-only here; mascot-hook.ps1
-# creates it once with a CSPRNG. No key means no mascot, which is also what a
-# fresh install looks like before the first turn ends.
+# The per-machine key. mascot-hook.ps1 creates it once with a CSPRNG; no key
+# means no mascot, which is also what a fresh install looks like.
 function Get-GachaKey {
     $file = Join-Path $CacheDir '.gacha-key'
     try { return [System.IO.File]::ReadAllText($file).Trim() } catch { return '' }
+}
+
+# HMAC-SHA256 of a message under the machine key, as lowercase hex.
+function Get-Hmac {
+    param([string]$Key, [string]$Message)
+
+    $hmac = $null
+    try {
+        $hmac = New-Object System.Security.Cryptography.HMACSHA256
+        $hmac.Key = [Text.Encoding]::UTF8.GetBytes($Key)
+        $bytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($Message))
+        return (-join ($bytes | ForEach-Object { $_.ToString('x2') }))
+    } catch {
+        return ''
+    } finally {
+        if ($null -ne $hmac) { $hmac.Dispose() }
+    }
 }
 
 # Whether this machine's key is one of the maintainer keys. Comparing hashes
@@ -532,30 +570,62 @@ function Test-DevKey {
     return $false
 }
 
-# Today's draw: @{ Tier; Index } or $null when there is no key. Two independent
-# 32-bit windows of one HMAC pick the tier and the face.
-function Get-GachaDraw {
+# The roll on file: @{ Date; Epoch; Tier; Index } or $null when there is none.
+# A bad signature reads as no roll at all, so an edited file loses the mascot
+# rather than granting a better one.
+function Get-SavedRoll {
+    $file = Join-Path $CacheDir 'gacha.txt'
+    $raw = ''
+    try { $raw = [System.IO.File]::ReadAllText($file).Trim() } catch { return $null }
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
+
+    $tok = $raw -split '\s+'
+    if ($tok.Count -lt 6 -or $tok[0] -ne 'v1') { return $null }
     $key = Get-GachaKey
     if ($key -eq '') { return $null }
 
-    $today = ''
-    try { $today = (Get-Date).ToString('yyyyMMdd') } catch { return $null }
+    $want = Get-Hmac $key "roll|v1|$($tok[1])|$($tok[2])|$($tok[3])|$($tok[4])"
+    if ($want -eq '' -or $want -ne $tok[5]) { return $null }
+    if ($null -eq $KaoTable[$tok[3]]) { return $null }
 
-    $bytes = $null
-    $hmac = $null
+    $epoch = Get-Epoch $tok[2]
+    if ($null -eq $epoch) { $epoch = 0 }
+    return @{ Date = $tok[1]; Epoch = $epoch; Tier = $tok[3]; Index = [int]$tok[4] }
+}
+
+# One roll per calendar day. A stored roll stamped in the future means the
+# clock moved backwards, and that does not earn another roll either.
+function Test-CanRoll {
+    param($Saved)
+
+    if ($null -eq $Saved) { return $true }
+    $today = ''
+    try { $today = (Get-Date).ToString('yyyyMMdd') } catch { return $false }
+    if ($Saved.Date -eq $today) { return $false }
+    if ($Now -gt 0 -and $Saved.Epoch -gt 0 -and $Now -lt $Saved.Epoch) { return $false }
+    return $true
+}
+
+# Rolls once and stores the signed result. Returns the new roll, or $null when
+# there is no key. The randomness is cryptographic, so the outcome is not
+# predictable from the date or from previous rolls.
+function Invoke-GachaRoll {
+    $key = Get-GachaKey
+    if ($key -eq '') { return $null }
+
+    $raw = New-Object byte[] 8
+    $rng = $null
     try {
-        $hmac = New-Object System.Security.Cryptography.HMACSHA256
-        $hmac.Key = [Text.Encoding]::UTF8.GetBytes($key)
-        $bytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes("gacha|v1|$today"))
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        $rng.GetBytes($raw)
     } catch {
         return $null
     } finally {
-        if ($null -ne $hmac) { $hmac.Dispose() }
+        if ($null -ne $rng) { $rng.Dispose() }
     }
-    if ($null -eq $bytes -or $bytes.Length -lt 8) { return $null }
 
-    $n1 = ([long]$bytes[0] * 16777216) + ([long]$bytes[1] * 65536) + ([long]$bytes[2] * 256) + [long]$bytes[3]
-    $n2 = ([long]$bytes[4] * 16777216) + ([long]$bytes[5] * 65536) + ([long]$bytes[6] * 256) + [long]$bytes[7]
+    $n1 = ([long]$raw[0] * 16777216) + ([long]$raw[1] * 65536) + ([long]$raw[2] * 256) + [long]$raw[3]
+    $n2 = ([long]$raw[4] * 16777216) + ([long]$raw[5] * 65536) + ([long]$raw[6] * 256) + [long]$raw[7]
 
     # A maintainer key adds the dev tier in front; the ordinary tiers then share
     # what is left of the 1000, keeping their ratio to each other. Whatever the
@@ -586,10 +656,26 @@ function Get-GachaDraw {
     $pool = $KaoTable[$tier]
     $idx = 0
     if ($pool.Count -gt 0) { $idx = [int]($n2 % $pool.Count) }
-    return @{ Tier = $tier; Index = $idx }
+
+    $today = (Get-Date).ToString('yyyyMMdd')
+    $stamp = $Now
+    if ($stamp -le 0) { $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
+    $sig = Get-Hmac $key "roll|v1|$($today)|$($stamp)|$($tier)|$($idx)"
+    if ($sig -eq '') { return $null }
+
+    try {
+        if (-not (Test-Path -LiteralPath $CacheDir)) {
+            New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null
+        }
+        $file = Join-Path $CacheDir 'gacha.txt'
+        [System.IO.File]::WriteAllText($file, "v1 $($today) $($stamp) $($tier) $($idx) $($sig)")
+    } catch {
+        return $null
+    }
+    return @{ Date = $today; Epoch = $stamp; Tier = $tier; Index = $idx }
 }
 
-# Flat tier color. Legend and dev do not use this - they get a gradient.
+# Flat tier color. Legend uses this only when colors are switched off.
 function Get-TierColor {
     param([string]$Tier)
 
@@ -603,9 +689,8 @@ function Get-TierColor {
     }
 }
 
-# Paints every character its own color along the rainbow and shifts the whole
-# ramp one step per refresh, so the colors appear to flow across the text. This
-# is what makes legend and dev shimmer instead of just sitting there.
+# Paints every character its own hue along the rainbow and drifts the whole
+# ramp one step per animation tick, so the color flows across the text.
 function Get-GradientText {
     param([string]$Text)
 
@@ -633,22 +718,21 @@ function Write-TierText {
     return "$(Get-TierColor $Tier)$($Text)$($Reset)"
 }
 
-# Picks the spoken line for a finished turn. Seeded with the timestamp the hook
-# recorded, so the line is stable across redraws but changes with the next turn.
+# Picks a line from a pool, seeded with the timestamp the hook recorded, so it
+# holds steady across redraws and changes with the next turn.
 function Get-Talk {
-    param([string]$Tier, [long]$Stamp)
+    param($Pool, [long]$Stamp)
 
     if (-not $ShowMascotTalk) { return '' }
-    $pool = $TalkTable[$Tier]
-    if ($null -eq $pool -or $pool.Count -eq 0) { return '' }
+    if ($null -eq $Pool -or $Pool.Count -eq 0) { return '' }
     $h = ($Stamp * 1103515245 + 12345) % 2147483648
     if ($h -lt 0) { $h = -$h }
-    return $pool[[int]($h % $pool.Count)]
+    return $Pool[[int]($h % $Pool.Count)]
 }
 
 # Reads the turn state the hooks left for this session and draws the face.
-# Returns '' when the hooks are not installed, so the line then looks exactly
-# as it did before the mascot existed.
+# Returns '' when nothing has been rolled yet or the hooks are not installed,
+# so the line then looks exactly as it did before the mascot existed.
 function Get-Mascot {
     param([string]$SidKey)
 
@@ -660,55 +744,77 @@ function Get-Mascot {
 
     $tok = $raw -split '\s+'
     $state = $tok[0]
-    $working = ($state -eq 'working')
     $stamp = 0
     if ($tok.Count -ge 2) {
         $parsed = Get-Epoch $tok[1]
         if ($null -ne $parsed) { $stamp = $parsed }
     }
 
+    $draw = Get-SavedRoll
     if ($state -eq 'error') {
         $frame = 0
         if ($Now -gt 0) { $frame = [int](($Now / $AnimSecs) % $KaoError.Count) }
-        $out = "$($CCrit)$(New-Kao $KaoError[$frame])"
-        if ($ShowMascotTalk -and $TalkError.Count -gt 0) {
-            $h = ($stamp * 1103515245 + 12345) % 2147483648
-            if ($h -lt 0) { $h = -$h }
-            $out += " $($TalkError[[int]($h % $TalkError.Count)])"
-        }
-        return "$($out)$($Reset)"
+        $text = New-Kao $KaoError[$frame]
+        $talk = Get-Talk $TalkError $stamp
+        if ($talk -ne '') { $text += " $($talk)" }
+        return "$($CCrit)$($text)$($Reset)"
     }
-    if (-not $working -and $state -ne 'done') { return '' }
-
-    $draw = Get-GachaDraw
     if ($null -eq $draw) { return '' }
 
+    $working = ($state -eq 'working')
     $face = $KaoTable[$draw.Tier][$draw.Index]
     $frame = 0
     if ($working -and $Now -gt 0 -and $face.Count -gt 0) {
         $frame = [int](($Now / $AnimSecs) % $face.Count)
     }
-
     $text = New-Kao $face[$frame]
-    # The mascot only speaks once the turn is over; mid-turn it just animates.
-    if (-not $working) {
-        $talk = Get-Talk $draw.Tier $stamp
-        if ($talk -ne '') { $text += " $($talk)" }
+
+    # Speaks while working, for a short while after finishing, and whenever
+    # something is waiting on you. Otherwise it stays quiet.
+    $talk = ''
+    if ($working) {
+        $talk = Get-Talk $TalkWork[$draw.Tier] $stamp
+    } elseif ($state -eq 'notify') {
+        $talk = Get-Talk $TalkNotify[$draw.Tier] $stamp
+    } elseif ($state -eq 'done') {
+        if ($Now -le 0 -or $stamp -le 0 -or ($Now - $stamp) -le $TalkWindowSecs) {
+            $talk = Get-Talk $TalkDone[$draw.Tier] $stamp
+        }
     }
+    if ($talk -ne '') { $text += " $($talk)" }
+
     return (Write-TierText $draw.Tier $text)
 }
 # ---- subcommands -----------------------------------------------------------
 # None of these read stdin, so they work from a plain prompt.
 
+# Prints one roll as "（・ω・）  [커먼]", tier label included.
+function Show-Draw {
+    param($Draw)
+
+    $label = @{
+        common = '커먼'; uncommon = '언커먼'; rare = '레어'
+        unique = '유니크'; legend = '레전드'; dev = 'DEV'
+    }[$Draw.Tier]
+    $face = $KaoTable[$Draw.Tier][$Draw.Index]
+
+    $frames = @()
+    foreach ($f in $face) { $frames += (New-Kao $f) }
+
+    Write-Output ("  {0}  [{1}]" -f (Write-TierText $Draw.Tier $frames[0]), $label)
+    Write-Output ("  표정 {0}장  {1}" -f $frames.Count, ($frames -join '  '))
+}
+
 if ($Help) {
     Write-Output "claude-code-statusline-astro $StatuslineVersion"
     Write-Output ''
     Write-Output '  statusline.ps1            Claude Code calls this with session JSON on stdin'
-    Write-Output '  statusline.ps1 -Today     show the mascot drawn for today'
-    Write-Output '  statusline.ps1 -Version   show the version'
-    Write-Output '  statusline.ps1 -Help      this text'
+    Write-Output '  statusline.ps1 -Roll      오늘의 마스코트 뽑기 (하루 한 번)'
+    Write-Output '  statusline.ps1 -Today     지금 쓰고 있는 마스코트 보기'
+    Write-Output '  statusline.ps1 -Version   버전 보기'
+    Write-Output '  statusline.ps1 -Help      이 도움말'
     Write-Output ''
-    Write-Output 'Settings live at the top of this file. Update by re-running install.ps1.'
+    Write-Output '뽑기는 하루 한 번이고, 뽑기 전까지 지금 마스코트가 그대로 유지됩니다.'
     exit 0
 }
 
@@ -717,29 +823,50 @@ if ($Version) {
     exit 0
 }
 
-if ($Today) {
-    $draw = Get-GachaDraw
-    if ($null -eq $draw) {
-        Write-Output '아직 뽑기 전입니다. 턴을 한 번 끝내면 오늘의 마스코트가 정해집니다.'
+if ($Roll) {
+    $saved = Get-SavedRoll
+    if (-not (Test-CanRoll $saved)) {
+        Write-Output '오늘 뽑기는 이미 사용했습니다. 내일 다시 뽑을 수 있어요.'
+        Write-Output ''
+        Show-Draw $saved
         exit 0
     }
-    $face = $KaoTable[$draw.Tier][$draw.Index]
-    $label = @{
-        common = '커먼'; uncommon = '언커먼'; rare = '레어'
-        unique = '유니크'; legend = '레전드'; dev = 'DEV'
-    }[$draw.Tier]
-
-    $frames = @()
-    foreach ($f in $face) { $frames += (New-Kao $f) }
-
-    Write-Output ("오늘의 마스코트  {0}  [{1}]" -f (Write-TierText $draw.Tier $frames[0]), $label)
-    Write-Output ("표정 {0}장         {1}" -f $frames.Count, ($frames -join '  '))
-    $pool = $TalkTable[$draw.Tier]
+    $new = Invoke-GachaRoll
+    if ($null -eq $new) {
+        Write-Output '뽑기에 실패했습니다. 턴을 한 번 끝내 비밀키가 만들어졌는지 확인해 주세요.'
+        exit 1
+    }
+    Write-Output '오늘의 마스코트를 뽑았습니다!'
+    Write-Output ''
+    Show-Draw $new
+    $pool = $TalkDone[$new.Tier]
     if ($null -ne $pool -and $pool.Count -gt 0) {
-        Write-Output ("대사              {0}" -f ($pool -join ' / '))
+        Write-Output ("  대사      {0}" -f ($pool -join ' / '))
     }
     Write-Output ''
-    Write-Output '얼굴은 날짜로 정해집니다. 내일 다시 뽑힙니다.'
+    Write-Output '다음 뽑기는 내일부터 가능합니다.'
+    exit 0
+}
+
+if ($Today) {
+    $saved = Get-SavedRoll
+    if ($null -eq $saved) {
+        Write-Output '아직 뽑은 마스코트가 없습니다. -Roll 로 뽑아 보세요.'
+        exit 0
+    }
+    Write-Output ("지금 마스코트  (뽑은 날 {0})" -f $saved.Date)
+    Write-Output ''
+    Show-Draw $saved
+    $pool = $TalkDone[$saved.Tier]
+    if ($null -ne $pool -and $pool.Count -gt 0) {
+        Write-Output ("  대사      {0}" -f ($pool -join ' / '))
+    }
+    Write-Output ''
+    if (Test-CanRoll $saved) {
+        Write-Output '오늘 뽑기가 남아 있습니다. -Roll 로 새로 뽑을 수 있어요.'
+    } else {
+        Write-Output '오늘 뽑기는 사용했습니다. 내일 다시 뽑을 수 있어요.'
+    }
     exit 0
 }
 

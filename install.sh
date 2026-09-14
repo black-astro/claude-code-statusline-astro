@@ -81,6 +81,7 @@ if command -v jq >/dev/null 2>&1; then
               put_hook("UserPromptSubmit"; "working")
               | put_hook("Stop"; "done")
               | put_hook("StopFailure"; "error")
+              | put_hook("Notification"; "notify")
           else . end
     ' "$SETTINGS" >"$tmp"
     mv "$tmp" "$SETTINGS"
@@ -114,6 +115,7 @@ if not no_mascot:
     put_hook(hooks, 'UserPromptSubmit', 'working')
     put_hook(hooks, 'Stop', 'done')
     put_hook(hooks, 'StopFailure', 'error')
+    put_hook(hooks, 'Notification', 'notify')
 
 with open(path, 'w', encoding='utf-8') as fh:
     json.dump(data, fh, indent=2, ensure_ascii=False)
@@ -144,6 +146,7 @@ if (noMascot !== "1") {
   putHook(data.hooks, "UserPromptSubmit", "working");
   putHook(data.hooks, "Stop", "done");
   putHook(data.hooks, "StopFailure", "error");
+  putHook(data.hooks, "Notification", "notify");
 }
 fs.writeFileSync(path, JSON.stringify(data, null, 2) + "\n", "utf8");
 ' "$SETTINGS" "$CMD" "$HOOK" "$NO_MASCOT"

@@ -61,7 +61,7 @@ cd claude-code-statusline-astro
 ## 설치하면 벌어지는 일
 
 1. `~/.claude/` 에 스크립트 2개를 복사합니다 (`statusline`, `mascot-hook`)
-2. `~/.claude/settings.json` 에 `statusLine` 항목과 훅 3개를 추가합니다
+2. `~/.claude/settings.json` 에 `statusLine` 항목과 훅 4개를 추가합니다
 3. 원래 설정은 `settings.json.bak` 으로 백업합니다
 
 **기존 설정은 지우지 않습니다.** 이미 쓰고 있던 다른 훅이나 권한 설정은 그대로 두고
@@ -80,7 +80,8 @@ cd claude-code-statusline-astro
 | 명령 | 하는 일 |
 | --- | --- |
 | `/statusline-install` | 설치·재설치 (설정 병합까지) |
-| `/statusline-today` | 오늘 뽑힌 마스코트 확인 |
+| `/statusline-roll` | **오늘의 마스코트 뽑기 (하루 한 번)** |
+| `/statusline-today` | 지금 쓰고 있는 마스코트 확인 |
 | `/statusline-update` | 최신 버전으로 업데이트 |
 | `/statusline-help` | 도움말 |
 
@@ -88,27 +89,33 @@ cd claude-code-statusline-astro
 
 ```sh
 # macOS · Linux · WSL
+sh ~/.claude/statusline.sh --roll       # 오늘의 마스코트 뽑기
+sh ~/.claude/statusline.sh --today      # 지금 마스코트 보기
 sh ~/.claude/statusline.sh --version    # 버전 확인
-sh ~/.claude/statusline.sh --today      # 오늘의 마스코트
 sh ~/.claude/statusline.sh --help       # 도움말
 ```
 
 ```powershell
 # Windows
-powershell -File ~/.claude/statusline.ps1 -Version
+powershell -File ~/.claude/statusline.ps1 -Roll
 powershell -File ~/.claude/statusline.ps1 -Today
+powershell -File ~/.claude/statusline.ps1 -Version
 powershell -File ~/.claude/statusline.ps1 -Help
 ```
 
-`--today` 출력은 이런 모양입니다.
+`--roll` 로 뽑으면 이렇게 나옵니다.
 
 ```
-오늘의 마스코트  （✧ᴗ✧）  [레전드]
-표정 4장         （✧ᴗ✧） （✦ᴗ✦） （★ᴗ★） （☆ᴗ☆）
-대사              요청하신 작업 모두 완료했습니다! / 전부 끝냈습니다, 확인 부탁드려요!
+오늘의 마스코트를 뽑았습니다!
 
-얼굴은 날짜로 정해집니다. 내일 다시 뽑힙니다.
+  （✧ᴗ✧）  [레전드]
+  표정 4장  （✧ᴗ✧） （✦ᴗ✦） （★ᴗ★） （☆ᴗ☆）
+  대사      요청하신 작업 모두 완료했습니다! / 전부 끝냈습니다, 확인 부탁드려요!
+
+다음 뽑기는 내일부터 가능합니다.
 ```
+
+같은 날 또 뽑으려 하면 지금 마스코트를 보여주고 넘어갑니다.
 
 ## 업데이트
 
@@ -139,6 +146,7 @@ irm https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/m
 | 등급 확률 | `MASCOT_ODDS='400 350 180 60 10'` | `$MascotOdds` |
 | 마스코트 대사 끄기 | `SHOW_MASCOT_TALK=0` | `$ShowMascotTalk = $false` |
 | 애니메이션 주기(초) | `ANIM_SECS=3` | `$AnimSecs = 3` |
+| 완료 후 말하는 시간(초) | `TALK_WINDOW_SECS=60` | `$TalkWindowSecs = 60` |
 
 색을 아예 빼고 싶으면 `NO_COLOR=1` 환경변수를 주면 됩니다.
 
@@ -166,8 +174,9 @@ Claude.ai 구독 플랜에서만 사용량이 내려옵니다. API 키로 쓰는
 오지 않습니다.
 
 **마스코트가 안 보여요**
-훅이 등록된 뒤 **턴이 한 번 끝나야** 나타납니다. 질문을 하나 던져 보세요. 그래도
-없으면 `settings.json` 의 `hooks` 에 `mascot-hook` 항목 3개가 있는지 확인하세요.
+아직 뽑지 않아서입니다. `/statusline-roll` (또는 `--roll`) 로 한 번 뽑아 주세요.
+뽑았는데도 안 보이면 `settings.json` 의 `hooks` 에 `mascot-hook` 항목 4개가 있는지
+확인하세요.
 
 **직접 확인해 보고 싶어요**
 
@@ -236,7 +245,13 @@ Claude Code가 알려주는 모델 이름을 그대로 보여줍니다.
 
 # 마스코트 뽑기
 
-줄 맨 뒤의 얼굴은 **하루에 한 번 뽑는 그날의 마스코트**입니다.
+줄 맨 뒤의 얼굴은 **내가 뽑은 마스코트**입니다. 뽑기는 하루에 한 번 할 수 있고,
+뽑기 전까지는 지금 얼굴이 그대로 유지됩니다. 마음에 드는 얼굴이 나왔다면 며칠이든
+그대로 두면 됩니다.
+
+```sh
+sh ~/.claude/statusline.sh --roll      # 또는 /statusline-roll
+```
 
 ## 등급
 
@@ -369,20 +384,24 @@ $s = [System.Security.Cryptography.SHA256]::Create()
 | `ᕙ（⇀‸↼）ᕗ` | `ᕙ（⇀‸↼）ᕗ` → `ᕦ（⇀‸↼）ᕤ` |
 ## 등급이 오르면 말이 트입니다
 
-작업이 끝나면 얼굴 옆에 한마디 합니다. 등급이 낮을수록 울음소리에 가깝고, 높아질수록
-문장이 또렷해집니다.
+등급이 낮을수록 울음소리에 가깝고, 높아질수록 문장이 또렷해집니다.
 
-| 등급 | 이런 식으로 말합니다 |
-| --- | --- |
-| 커먼 | `왕!` `냥!` `삐약!` `음냐` |
-| 언커먼 | `다했다!` `끝!` `됐다!` `오케이!` |
-| 레어 | `다 됐어요` `끝났어요` `해냈어요!` |
-| 유니크 | `작업 완료했어요!` `깔끔하게 끝냈어요!` |
-| 레전드 | `요청하신 작업 모두 완료했습니다!` |
-| DEV | `빌드 통과.` `커밋하시죠.` `테스트 전부 초록불.` |
+| 등급 | 작업 중 | 작업 끝 | 알림 |
+| --- | --- | --- | --- |
+| 커먼 | `끙...` | `왕!` | `앙?` |
+| 언커먼 | `하는 중!` | `다했다!` | `저기요!` |
+| 레어 | `작업 중이에요` | `해냈어요!` | `확인해 주세요` |
+| 유니크 | `처리하고 있어요!` | `작업 완료했어요!` | `확인 부탁해요!` |
+| 레전드 | `작업을 진행하고 있습니다!` | `요청하신 작업 모두 완료했습니다!` | `확인 부탁드립니다!` |
+| DEV | `빌드 도는 중.` | `커밋하시죠.` | `입력 대기 중.` |
 
-대사는 턴마다 바뀌고, 작업 중에는 말하지 않습니다. 필요 없으면
-`SHOW_MASCOT_TALK=0` 으로 끌 수 있습니다.
+**평상시에는 말하지 않습니다.** 작업 중이거나, 막 끝났거나, 무언가 확인을 기다릴 때만
+한마디 합니다. 완료 대사는 1분이 지나면 사라지고 얼굴만 남습니다 — 켜 둔 터미널에
+지난 문장이 계속 붙어 있지 않도록.
+
+알림 문구는 한눈에 들어오도록 짧게 씁니다.
+
+대사가 아예 필요 없으면 `SHOW_MASCOT_TALK=0` 으로 끌 수 있습니다.
 
 ## 움직입니다
 
@@ -413,15 +432,18 @@ $s = [System.Security.Cryptography.SHA256]::Create()
 > 그리는 주기(`refreshInterval`)와 같아야 의미가 있습니다. 설치 스크립트가 둘 다 3초로
 > 맞춰 둡니다.
 
-## 하루 한 번
+## 하루 한 번, 직접 뽑습니다
 
-오늘의 얼굴은 **날짜로 정해집니다.** 이 컴퓨터의 비밀키와 오늘 날짜를 HMAC-SHA256으로
-묶어 계산하기 때문에, 몇 번을 다시 그려도 그날은 같은 얼굴이 나옵니다. 날짜가 바뀌면
-자동으로 새로 뽑힙니다.
+뽑기는 **하루에 한 번**입니다. 날짜가 바뀌면 뽑을 권리가 다시 생기고, 뽑지 않으면
+지금 얼굴이 그대로 남습니다. 저절로 바뀌는 일은 없습니다.
 
-비밀키는 설치 후 첫 턴이 끝날 때 난수로 한 번 만들어지고
-(`~/.claude/statusline-cache/.gacha-key`), 그 뒤로는 건드리지 않습니다. 이 파일을 지우면
-얼굴도 새로 정해지니 그대로 두시면 됩니다.
+뽑은 결과는 이 컴퓨터의 비밀키로 서명해서 보관합니다. 보관 파일을 손으로 고치면
+서명이 맞지 않아 그 내용은 무시되므로, 등급이나 얼굴을 원하는 값으로 바꿔 넣을 수는
+없습니다. 뽑기 자체도 암호학적 난수를 쓰기 때문에 결과를 미리 알거나 고를 수 없습니다.
+
+비밀키는 설치 후 첫 턴이 끝날 때 한 번 만들어지고(`~/.claude/statusline-cache/.gacha-key`)
+그 뒤로는 건드리지 않습니다. 이 파일을 지우면 지금까지 뽑은 마스코트도 함께 사라지니
+그대로 두시면 됩니다.
 
 ---
 
@@ -465,6 +487,7 @@ Claude Code ──JSON──> statusline.ps1 / .sh ──한 줄──> 화면
 | `UserPromptSubmit` | 질문을 보낼 때 | `working` |
 | `Stop` | 답이 끝났을 때 | `done` |
 | `StopFailure` | 실패했을 때 | `error` |
+| `Notification` | 확인을 기다릴 때 | `notify` |
 
 훅을 설치하지 않으면 이 파일이 아예 생기지 않고, 마스코트도 나오지 않습니다.
 상태라인은 마스코트가 없던 때와 똑같이 그려집니다.

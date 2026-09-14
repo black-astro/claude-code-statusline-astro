@@ -6,11 +6,12 @@
 #   UserPromptSubmit -> mascot-hook.ps1 -State working
 #   Stop             -> mascot-hook.ps1 -State done
 #   StopFailure      -> mascot-hook.ps1 -State error
+#   Notification     -> mascot-hook.ps1 -State notify
 #
 # The script writes one small file and prints nothing, so it can never disturb
 # a turn. Every failure path exits 0 for the same reason.
 param(
-    [ValidateSet('working', 'done', 'error')]
+    [ValidateSet('working', 'done', 'error', 'notify')]
     [string]$State = 'done'
 )
 
