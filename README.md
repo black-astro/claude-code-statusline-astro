@@ -180,7 +180,7 @@ DIR my-project | GIT main | MODEL Opus 5 | CTX [◼◼◻◻◻◻◻◻◻◻] 
 | **Heartthrob** | ![Heartthrob](docs/legend/legend-2.svg) | 자주에서 분홍으로 |
 | **Bliss** | ![Bliss](docs/legend/legend-3.svg) | 주홍에서 살구색으로 |
 | **Serenade** | ![Serenade](docs/legend/legend-4.svg) | 청록에서 얼음빛으로 |
-| **Monarch** | ![Monarch](docs/legend/legend-5.svg) | 연초록에서 남색으로 |
+| **Monarch** | ![Monarch](docs/legend/legend-5.svg) | 연초록에서 파랑으로 |
 | **Wrath** | ![Wrath](docs/legend/legend-6.svg) | 진한 붉은색에서 연한 붉은색으로 |
 | **Overlord** | ![Overlord](docs/legend/legend-7.svg) | 연보라에서 흰빛과 은색으로 |
 
