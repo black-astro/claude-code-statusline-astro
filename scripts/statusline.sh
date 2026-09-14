@@ -20,7 +20,7 @@ BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
-STATUSLINE_VERSION='1.4.7'
+STATUSLINE_VERSION='1.4.8'
 
 # Run with no arguments (the way Claude Code calls it) to print the status line.
 #   --roll      roll today's mascot (once a day) and exit
@@ -72,7 +72,7 @@ ANIM_SECS=2
 # Legend sparkle: the face wears the darker half of its palette, and on every
 # redraw one character in SPARKLE_EVERY flashes the palette's lightest colour,
 # picked by the clock so the twinkle wanders. 1 lights everything, 0 turns
-# the twinkle off. The spoken line stays in one steady light colour.
+# the twinkle off. The spoken line gets the same treatment on its own.
 SPARKLE_EVERY=4
 # 24-bit colour for the legend ramp. Set 0 on a terminal that only knows 256
 # colours; the ramp then snaps to the nearest of those.
@@ -425,9 +425,9 @@ meter() {
 KAO_ERROR='（；へ；）#（；ㅅ；）'
 KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´-ω-）|（ ˘ω˘ ）z#（ ˘ω˘ ）Z|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（・◡・）#（－◡－）|（￢_￢）#（￢‿￢）|（＝_＝）#（＝.＝）|（・_・）#（－_－）|（≖‿≖）#（≖_≖）|（◣_◢）#（◢_◣）|（ー_ー）#（ー.ー）'
 KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡-ω-｡）|（^▽^）#（^∇^）|（◕‿◕）#（◠‿◠）|（≧ω≦）#（≧▽≦）|（･ω<）#（-ω<）|（ㆆ_ㆆ）#（ㆆ.ㆆ）|（◔_◔）#（◔‸◔）|（◓_◓）#（◒_◒）|（・ㅂ・）#（－ㅂ－）|（¬‿¬）#（¬_¬）|（◑_◑）#（◐_◐）'
-KAO_RARE='（๑˃ᴗ˂）✧#（๑˂ᴗ˃）✦|ヽ（•‿•）ノ#ヾ（•‿•）ノ|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（๑✧‿✧๑）#（๑✦‿✦๑）|ヽ（^ω^）ノ#ヾ（^ω^）ノ|（￣ｰ￣）✧#（￣ｰ￣）✦|（▼ω▼）✧#（▼ω▼）✦|（◣ω◢）✧#（◢ω◣）✦|（￢‿￢）✧#（￢‿￢）✦|（★ω★）#（☆ω☆）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜'
-KAO_UNIQUE='✧ヽ（☆▽☆）ノ✧#✦ヾ（★▽★）ノ✦|✧（ﾉ◕ヮ◕）ﾉ✧#✦（ﾉ◠ヮ◠）ﾉ✦|✧（๑♡‿♡๑）✧#✦（๑♥‿♥๑）✦|✧ヽ（✧∇✧）ノ✧#✦ヾ（✦▽✦）ノ✦|✧＼（◕ᴗ◕）／✧#✦＼（◠ᴗ◠）／✦|✧ヽ（￣ヘ￣）ノ✧#✦ヾ（￣ヘ￣）ノ✦|✧ヽ（╬◣_◢）ノ✧#✦ヽ（╬◢_◣）ノ✦|✧ヽ（￢_￢）ノ✧#✦ヾ（￢‿￢）ノ✦|✧ヽ（╬￣ヘ￣）ノ✧#✦ヾ（╬￣ヘ￣）ノ✦|✧┗（⇀‸↼）┛✧#✦┗（⇀‸↼）┛✦'
-KAO_LEGEND='･ﾟ✧（◕ᴗ◕）✧ﾟ･#･ﾟ✦（◕ᴗ◕）✦ﾟ･#･ﾟ✧（◕ᴗ◕）✦ﾟ･#･ﾟ✦（◕ᴗ◕）✧ﾟ･|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ノ♥#♡ヾ（♥‿♥）ノ♡#♥ヽ（♡‿♡）ノ♥|✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✦#✧ﾟ（ﾉ≧∇≦）ﾉﾟ✦#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✧|♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬#♩ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♩#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬|･ﾟ✧（￣ヘ￣）✧ﾟ･#･ﾟ✦（￣ヘ￣）✦ﾟ･#･ﾟ✧（￣ヘ￣）✦ﾟ･#･ﾟ✦（￣ヘ￣）✧ﾟ･|✦ﾟ（╬◣_◢）ﾟ✦#✧ﾟ（╬◢_◣）ﾟ✧#✦ﾟ（╬◢_◣）ﾟ✦#✧ﾟ（╬◣_◢）ﾟ✧|≪✧（╬▼_▼）✧≫#≪✦（╬▼_▼）✦≫#≪✧（╬▼_▼）✦≫#≪✦（╬▼_▼）✧≫'
+KAO_RARE='（๑˃ᴗ˂）◇#（๑˂ᴗ˃）◆|ヽ（•‿•）ノ#ヾ（•‿•）ノ|（◕‿◕）◇#（◠‿◠）◆|\（^o^）/#\（^O^）/|（๑◇‿◇๑）#（๑◆‿◆๑）|ヽ（^ω^）ノ#ヾ（^ω^）ノ|（￣ｰ￣）◇#（￣ｰ￣）◆|（▼ω▼）◇#（▼ω▼）◆|（◣ω◢）◇#（◢ω◣）◆|（￢‿￢）◇#（￢‿￢）◆|（★ω★）#（☆ω☆）|（☞°ヮ°）☞#（☜°ヮ°）☜'
+KAO_UNIQUE='◇ヽ（☆▽☆）ノ◇#◆ヾ（★▽★）ノ◆|◇（ﾉ◕ヮ◕）ﾉ◇#◆（ﾉ◠ヮ◠）ﾉ◆|◇（๑♡‿♡๑）◇#◆（๑♥‿♥๑）◆|◇ヽ（◇∇◇）ノ◇#◆ヾ（◆▽◆）ノ◆|◇＼（◕ᴗ◕）／◇#◆＼（◠ᴗ◠）／◆|◇ヽ（￣ヘ￣）ノ◇#◆ヾ（￣ヘ￣）ノ◆|◇ヽ（╬◣_◢）ノ◇#◆ヽ（╬◢_◣）ノ◆|◇ヽ（￢_￢）ノ◇#◆ヾ（￢‿￢）ノ◆|◇ヽ（╬￣ヘ￣）ノ◇#◆ヾ（╬￣ヘ￣）ノ◆|◇┗（⇀‸↼）┛◇#◆┗（⇀‸↼）┛◆'
+KAO_LEGEND='·°◇（◕ᴗ◕）◇°·#·°◆（◕ᴗ◕）◆°·#·°◇（◕ᴗ◕）◆°·#·°◆（◕ᴗ◕）◇°·|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ノ♥#♡ヾ（♥‿♥）ノ♡#♥ヽ（♡‿♡）ノ♥|◇°（ﾉ≧∇≦）ﾉ°◇#◆°（ﾉ≧▽≦）ﾉ°◆#◇°（ﾉ≧∇≦）ﾉ°◆#◆°（ﾉ≧▽≦）ﾉ°◇|♪°·（๑ᴖ◡ᴖ๑）·°♪#♬°·（๑ᴖ◡ᴖ๑）·°♬#♩°·（๑ᴖ◡ᴖ๑）·°♩#♬°·（๑ᴖ◡ᴖ๑）·°♬|·°◇（￣ヘ￣）◇°·#·°◆（￣ヘ￣）◆°·#·°◇（￣ヘ￣）◆°·#·°◆（￣ヘ￣）◇°·|◆°（╬◣_◢）°◆#◇°（╬◢_◣）°◇#◆°（╬◢_◣）°◆#◇°（╬◣_◢）°◇|≪◇（╬▼_▼）◇≫#≪◆（╬▼_▼）◆≫#≪◇（╬▼_▼）◆≫#≪◆（╬▼_▼）◇≫'
 KAO_DEV='｛・ω・｝#｛－ω－｝|⟨◕ᴗ◕⟩#⟨◠ᴗ◠⟩|［◉_◉］#［◉‸◉］|⟨◣_◢⟩#⟨◢_◣⟩'
 
 NAME_COMMON='Kitten|Droopy|Snooze|Whiskers|Grin|Smiley|Side-eye|Meh|Blank|Smirk|Scowl|Deadpan'
@@ -774,11 +774,6 @@ grad_text() {
         }'
 }
 
-# The steady colour for a legend's spoken line: the light end of the face's
-# own range ($1 = the ramp).
-legend_talk_color() {
-    printf %s "$1" | awk -v esc="$ESC" '{ n = split($0, C, " "); printf "%s[%sm", esc, C[int(n * 3 / 8) + 1] }'
-}
 
 # Unique wears one fixed gradient, lavender to deep purple, stretched across
 # the text ($2 = the ramp). It never moves and uses few colours: a clear step
@@ -875,12 +870,14 @@ mascot() {
         _seed=0
         [ "$now" -gt 0 ] && _seed=$(( now % 1000003 ))
         printf '%s' "$(grad_text "$_text" "$_seed" "$_ramp")${RESET}"
-        [ -n "$_line" ] && printf ' %s%s%s' "$(legend_talk_color "$_ramp")" "$_line" "$RESET"
+        # The line wears its own gradient, seeded one step apart so its
+        # twinkle does not mirror the face's.
+        [ -n "$_line" ] && printf ' %s%s' "$(grad_text "$_line" "$(( _seed + 1 ))" "$_ramp")" "$RESET"
         return 0
     fi
     if [ "$ROLL_TIER" = unique ] && [ -n "$RESET" ] && awk_counts_chars; then
         printf '%s' "$(static_grad_text "$_text" "$(legend_ramp unique)")${RESET}"
-        [ -n "$_line" ] && printf ' %s%s%s' "$C_UNIQUE" "$_line" "$RESET"
+        [ -n "$_line" ] && printf ' %s%s' "$(static_grad_text "$_line" "$(legend_ramp unique)")" "$RESET"
         return 0
     fi
     [ -n "$_line" ] && _text="${_text} ${_line}"
