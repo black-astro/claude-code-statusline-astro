@@ -1,5 +1,5 @@
 #!/bin/sh
-# claude-code-statusline - mascot state hook (macOS, Linux, WSL, Git Bash).
+# claude-statusline - mascot state hook (macOS, Linux, WSL, Git Bash).
 #
 # Claude Code never tells the status line whether a turn is running, so the
 # hooks record it here and statusline.sh reads it back. Wire it up like this:

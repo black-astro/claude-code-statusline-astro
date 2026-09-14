@@ -1,9 +1,9 @@
 #!/bin/sh
-# claude-code-statusline installer for macOS / Linux / WSL / Git Bash.
+# claude-statusline installer for macOS / Linux / WSL / Git Bash.
 #
 #   ./install.sh                 # from a cloned repo
 #   ./install.sh --no-mascot     # status line only, skip the mascot hooks
-#   curl -fsSL https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main/install.sh | sh
 #
 # Copies statusline.sh (and mascot-hook.sh) into ~/.claude/, then merges a
 # statusLine entry and the mascot hooks into ~/.claude/settings.json. Existing
@@ -11,7 +11,7 @@
 
 set -e
 
-REPO_RAW='https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main'
+REPO_RAW='https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main'
 CLAUDE_DIR="${HOME}/.claude"
 TARGET="${CLAUDE_DIR}/statusline.sh"
 HOOK_TARGET="${CLAUDE_DIR}/mascot-hook.sh"

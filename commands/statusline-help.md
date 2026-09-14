@@ -10,14 +10,15 @@ allowed-tools: Bash
 ```
 명령어
   /statusline-install   설치 · 재설치
-  /statusline-roll      오늘의 마스코트 뽑기 (하루 한 번)
+  /statusline-roll      마스코트 뽑기 (하루 한 번)
   /statusline-today     지금 쓰고 있는 마스코트 확인
   /statusline-update    최신 버전으로 업데이트
   /statusline-help      이 도움말
 
 터미널에서
-  sh ~/.claude/statusline.sh --roll | --today | --version | --help
-  powershell -File ~/.claude/statusline.ps1 -Roll | -Today | -Version | -Help
+  ~/.claude/mascot roll          뽑기
+  ~/.claude/mascot               지금 마스코트
+  sh ~/.claude/statusline.sh --help
 
 읽는 법
   DIR    프로젝트 폴더        GIT   브랜치 (main·master 는 보라색)

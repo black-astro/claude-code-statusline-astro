@@ -13,10 +13,12 @@ allowed-tools: Bash, Read, Write, Edit
    `~/.claude/` 로 복사한다. 그렇지 않으면 저장소에서 내려받는다.
 
    ```
-   https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main/scripts/statusline.ps1
-   https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main/scripts/statusline.sh
-   https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main/scripts/mascot-hook.ps1
-   https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main/scripts/mascot-hook.sh
+   https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main/scripts/statusline.ps1
+   https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main/scripts/statusline.sh
+   https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main/scripts/mascot-hook.ps1
+   https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main/scripts/mascot-hook.sh
+   https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main/scripts/mascot
+   https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main/scripts/mascot.cmd
    ```
 
 3. `settings.json` 은 건드리지 않는다. 스크립트 파일만 교체한다.

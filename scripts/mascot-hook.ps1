@@ -1,4 +1,4 @@
-# claude-code-statusline - mascot state hook (Windows PowerShell 5.1 and 7+).
+# claude-statusline - mascot state hook (Windows PowerShell 5.1 and 7+).
 #
 # Claude Code never tells the status line whether a turn is running, so the
 # hooks record it here and statusline.ps1 reads it back. Wire it up like this:

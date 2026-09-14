@@ -1,8 +1,8 @@
-# claude-code-statusline installer for Windows PowerShell 5.1+ and PowerShell 7+.
+# claude-statusline installer for Windows PowerShell 5.1+ and PowerShell 7+.
 #
 #   .\install.ps1
 #   .\install.ps1 -NoMascot      # status line only, skip the mascot hooks
-#   irm https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main/install.ps1 | iex
 #
 # Copies statusline.ps1 (and mascot-hook.ps1) into ~/.claude/, then merges a
 # statusLine entry and the mascot hooks into ~/.claude/settings.json. Existing
@@ -12,7 +12,7 @@ param([switch]$NoMascot)
 
 $ErrorActionPreference = 'Stop'
 
-$repoRaw = 'https://raw.githubusercontent.com/black-astro/claude-code-statusline-astro/main'
+$repoRaw = 'https://raw.githubusercontent.com/black-astro/claude-statusline-astro/main'
 
 $home_ = $HOME
 if ([string]::IsNullOrWhiteSpace($home_)) { $home_ = $env:USERPROFILE }

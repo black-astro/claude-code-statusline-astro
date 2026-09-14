@@ -1,5 +1,5 @@
 #!/bin/sh
-# claude-code-statusline — POSIX sh implementation (macOS, Linux, WSL, Git Bash).
+# claude-statusline — POSIX sh implementation (macOS, Linux, WSL, Git Bash).
 #
 # Reads the Claude Code session JSON from stdin and prints exactly one line:
 #   DIR <project> | GIT <branch> | MODEL <name> | CTX [bar] NN% | 5H [bar] NN% 4h10m
@@ -20,7 +20,7 @@ BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
-STATUSLINE_VERSION='1.4.0'
+STATUSLINE_VERSION='1.5.0'
 
 # Run with no arguments (the way Claude Code calls it) to print the status line.
 #   --roll      roll today's mascot (once a day) and exit
@@ -30,21 +30,23 @@ STATUSLINE_VERSION='1.4.0'
 SUBCOMMAND=''
 case "${1:-}" in
     --version|-v)
-        printf 'claude-code-statusline-astro %s\n' "$STATUSLINE_VERSION"
+        printf 'claude-statusline-astro %s\n' "$STATUSLINE_VERSION"
         exit 0
         ;;
     --help|-h)
-        printf 'claude-code-statusline-astro %s\n\n' "$STATUSLINE_VERSION"
+        printf 'claude-statusline-astro %s\n\n' "$STATUSLINE_VERSION"
         printf '  statusline.sh            Claude Code calls this with session JSON on stdin\n'
         printf '  statusline.sh --roll     오늘의 마스코트 뽑기 (하루 한 번)\n'
         printf '  statusline.sh --today    지금 쓰고 있는 마스코트 보기\n'
         printf '  statusline.sh --version  버전 보기\n'
         printf '  statusline.sh --help     이 도움말\n\n'
         printf '뽑기는 하루 한 번이고, 뽑기 전까지 지금 마스코트가 그대로 유지됩니다.\n'
+        printf '\n  statusline.sh --roll legend   등급 지정 (메인테이너 키 전용)\n'
         exit 0
         ;;
     --roll)
         SUBCOMMAND=roll
+        ROLL_WANT="${2:-}"
         ;;
     --today)
         SUBCOMMAND=today
@@ -76,7 +78,7 @@ MASCOT_TIERS='common uncommon rare unique legend'
 # nothing away - matching it would mean finding a preimage of SHA-256. Add your
 # own hash to claim the tier on your machine: SHA-256 of the key file's text,
 # trimmed of whitespace, hashed as UTF-8. The README gives the exact command.
-DEV_KEY_HASHES='837cbfd9a3f7b0c8887e1654f8bed41800fd80a4cd4a969a14b1a5095d6fa31a'
+DEV_KEY_HASHES='64528c9f19e91ed0ca521f443a672235456aa3cdf23f45787f07482759777238'
 # Per-mille odds of the dev tier; the ordinary tiers share what is left, keeping
 # their ratio to each other.
 DEV_ODDS=100
@@ -393,16 +395,35 @@ meter() {
 # Faces are separated by '|' and their frames by '#'; no face contains either
 # character, so cut can index them. Spoken lines use the same convention.
 KAO_ERROR='（；へ：）#（；ω；）'
-KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´－ω－）|（・_・）#（－_－）|（ ˘ω˘ ）#（ ˘ᴗ˘ ）|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（＞ω＜）#（＞ᴗ＜）|（・ｖ・）#（－ｖ－）|（^_^）#（^ω^）|（・◡・）#（－◡－）|（・ツ・）#（－ツ－）|（¬ω¬）#（¬_¬）'
-KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡－ω－｡）|（^▽^）#（^ᴗ^）|（・ㅂ・）#（－ㅂ－）|（◕‿◕）#（◠‿◠）|（๑•ᴗ•๑）#（๑-ᴗ-๑）|（≧ω≦）#（≧ᴗ≦）|（･ω<）#（･ᴗ<）|（。◕‿◕。）#（。◠‿◠。）|（＾▽＾）#（＾ᴗ＾）|（･◡･）#（･ᴗ･）|（≖‿≖）#（≖_≖）'
-KAO_RARE='（๑˃ᴗ˂）✧#（๑˃ᴗ˂）✦|ヽ（•‿•）ノ#ヾ（•‿•）ﾉ|（★ω★）#（☆ω☆）|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（✧ω✧）#（✦ω✦）|ヽ（◕‿◕）ノ#ヾ（◠‿◠）ﾉ|（๑✧‿✧๑）#（๑✦‿✦๑）|（★‿★）#（☆‿☆）|（≧∇≦）✧#（≧▽≦）✦|ヽ（^ω^）ノ#ヾ（^ᴗ^）ﾉ|（･∀･）✧#（･∀･）✦'
-KAO_UNIQUE='（☆▽☆）#（★▽★）|ヽ（°〇°）ﾉ#ヾ（°Д°）ﾉ|（ﾉ◕ヮ◕）ﾉ#（ヽ◕ヮ◕）ヽ|（♡‿♡）#（♥‿♥）|（ﾉ☆▽☆）ﾉ#（ヽ★▽★）ヽ|（๑♡‿♡๑）#（๑♥‿♥๑）|ヽ（✧∇✧）ノ#ヾ（✦▽✦）ﾉ|（＠◕ᴗ◕＠）#（＠◠ᴗ◠＠）|（ﾉ≧ڡ≦）ﾉ#（ヽ≧ڡ≦）ヽ'
-KAO_LEGEND='✧（◕ᴗ◕）✧#✦（◕ᴗ◕）✦#✧（◕ᴗ◕）✦#✦（◕ᴗ◕）✧|ヽ（♡‿♡）ノ#ヾ（♥‿♥）ﾉ#ヽ（♥‿♥）ノ#ヾ（♡‿♡）ﾉ|（ﾉ≧∇≦）ﾉ#（ﾉ≧▽≦）ﾉ#（ヽ≧∇≦）ヽ#（ヽ≧▽≦）ヽ|♪（๑ᴖ◡ᴖ๑）♪#♫（๑ᴖ◡ᴖ๑）♫#♩（๑ᴖ◡ᴖ๑）♩#♬（๑ᴖ◡ᴖ๑）♬|（✧ᴗ✧）#（✦ᴗ✦）#（★ᴗ★）#（☆ᴗ☆）'
-KAO_DEV='（¬‿¬）#（¬_¬）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜|（◣_◢）#（◢_◣）|ᕙ（⇀‸↼）ᕗ#ᕦ（⇀‸↼）ᕤ'
+KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´－ω－）|（・_・）#（－_－）|（ ˘ω˘ ）#（ ˘ᴗ˘ ）|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（＞ω＜）#（＞ᴗ＜）|（・ｖ・）#（－ｖ－）|（^_^）#（^ω^）|（・◡・）#（－◡－）|（≖‿≖）#（≖_≖）|（◣_◢）#（◢_◣）'
+KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡－ω－｡）|（^▽^）#（^ᴗ^）|（・ㅂ・）#（－ㅂ－）|（◕‿◕）#（◠‿◠）|（๑•ᴗ•๑）#（๑-ᴗ-๑）|（≧ω≦）#（≧ᴗ≦）|（･ω<）#（･ᴗ<）|（。◕‿◕。）#（。◠‿◠。）|（＾▽＾）#（＾ᴗ＾）|（･◡･）#（･ᴗ･）|（¬‿¬）#（¬ω¬）'
+KAO_RARE='（๑˃ᴗ˂）✧#（๑˃ᴗ˂）✦|ヽ（•‿•）ノ#ヾ（•‿•）ﾉ|（★ω★）#（☆ω☆）|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（✧ω✧）#（✦ω✦）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜|（๑✧‿✧๑）#（๑✦‿✦๑）|（★‿★）#（☆‿☆）|（≧∇≦）✧#（≧▽≦）✦|ヽ（^ω^）ノ#ヾ（^ᴗ^）ﾉ|（･∀･）✧#（･∀･）✦'
+KAO_UNIQUE='✧ヽ（☆▽☆）ノ✧#✦ヾ（★▽★）ﾉ✦|✧ヽ（°〇°）ﾉ✧#✦ヾ（°Д°）ﾉ✦|✧（ﾉ◕ヮ◕）ﾉ✧#✦（ヽ◕ヮ◕）ヽ✦|✧（๑♡‿♡๑）✧#✦（๑♥‿♥๑）✦|✧ᕙ（⇀‸↼）ᕗ✧#✦ᕦ（⇀‸↼）ᕤ✦|✧ヽ（✧∇✧）ノ✧#✦ヾ（✦▽✦）ﾉ✦|✧（＠◕ᴗ◕＠）✧#✦（＠◠ᴗ◠＠）✦|✧（ﾉ≧ڡ≦）ﾉ✧#✦（ヽ≧ڡ≦）ヽ✦|✧＼（◕ᴗ◕）／✧#✦＼（◠ᴗ◠）／✦'
+KAO_LEGEND='･ﾟ✧（◕ᴗ◕）✧ﾟ･#･ﾟ✦（◕ᴗ◕）✦ﾟ･#･ﾟ✧（◕ᴗ◕）✦ﾟ･#･ﾟ✦（◕ᴗ◕）✧ﾟ･|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ﾉ♥#♡ヾ（♥‿♥）ﾉ♡#♥ヽ（♡‿♡）ノ♥|✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✦#✧ﾟ（ヽ≧∇≦）ヽﾟ✧#✦ﾟ（ヽ≧▽≦）ヽﾟ✦|♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪#♫ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♫#♩ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♩#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬|☆彡（✧ᴗ✧）彡☆#★彡（✦ᴗ✦）彡★#☆彡（★ᴗ★）彡☆#★彡（☆ᴗ☆）彡★'
+KAO_DEV='［◉_◉］#［◎_◎］|｛・ω・｝#｛－ω－｝|⟨◕ᴗ◕⟩#⟨◠ᴗ◠⟩|（＄_＄）#（￥_￥）'
 
 # The mascot only speaks while a turn runs, right after one ends, and when
 # something is waiting on you. The rest of the time it just sits there.
 TALK_ERROR='앗...|실패했어요...'
+
+# 얼굴 이름 — --today 에서 종류를 보여줄 때 쓴다.
+NAME_COMMON='웅크림|보드람|멍함|졸림|고양이|히죽|찡긋|무표정|싱글|순둥|실눈|날섬'
+NAME_UNCOMMON='방긋|동글|활짝|새침|미소|초롱|신남|윙크|방실|함박|다정|능글'
+NAME_RARE='반짝|만세|별눈|빛나는미소|환호|광채|손짓|두근|별빛|폭소|신난만세|흐뭇'
+NAME_UNIQUE='눈부심|깜짝|들뜸|사랑|근육|환희|볼빨강|군침|두손번쩍'
+NAME_LEGEND='축복|사랑폭발|승리|노래|별빛세례'
+NAME_DEV='해커|중괄호|꺾쇠|머니'
+
+name_pool() {
+    case "$1" in
+        common)   printf %s "$NAME_COMMON" ;;
+        uncommon) printf %s "$NAME_UNCOMMON" ;;
+        rare)     printf %s "$NAME_RARE" ;;
+        unique)   printf %s "$NAME_UNIQUE" ;;
+        legend)   printf %s "$NAME_LEGEND" ;;
+        dev)      printf %s "$NAME_DEV" ;;
+    esac
+}
 TALK_WORK_COMMON='끙...|우우|낑낑|웅...'
 TALK_WORK_UNCOMMON='하는 중!|조금만!|열일 중!|가는 중!'
 TALK_WORK_RARE='작업 중이에요|조금만 기다려요|거의 다 왔어요'
@@ -542,9 +563,18 @@ can_roll() {
 
 # Rolls once and stores the signed result. The randomness is cryptographic, so
 # the outcome is not predictable from the date or from previous rolls.
+# $1 = 원하는 등급(선택). 0 성공 / 1 실패 / 2 권한 없음 / 3 없는 등급.
 do_roll() {
     _key=$(gacha_key)
     [ -n "$_key" ] || return 1
+
+    # Picking a tier outright is a maintainer thing - it is how the faces get
+    # looked at while working on them. Any other key is turned away here.
+    _want="${1:-}"
+    if [ -n "$_want" ]; then
+        is_dev_key "$_key" || return 2
+        [ -n "$(gacha_pool "$_want")" ] || return 3
+    fi
 
     _rand=''
     if command -v openssl >/dev/null 2>&1; then
@@ -583,6 +613,7 @@ do_roll() {
         fi
         _ti=$(( _ti + 1 ))
     done
+    [ -n "$_want" ] && ROLL_TIER=$_want
 
     _kn=$(kao_count "$(gacha_pool "$ROLL_TIER")")
     [ "$_kn" -gt 0 ] || return 1
@@ -726,11 +757,39 @@ show_draw() {
         dev)      _lab='DEV' ;;
     esac
     _f=$(kao_at "$(gacha_pool "$ROLL_TIER")" "$ROLL_INDEX")
-    printf '  %s%s%s  [%s]\n' "$(tier_color "$ROLL_TIER")" "$(kao_frame "$_f" 1)" "$RESET" "$_lab"
+    _nm=$(kao_at "$(name_pool "$ROLL_TIER")" "$ROLL_INDEX")
+    _tot=$(kao_count "$(gacha_pool "$ROLL_TIER")")
+    printf '  %s%s%s  %s  [%s %s/%s종]\n' "$(tier_color "$ROLL_TIER")" "$(kao_frame "$_f" 1)" "$RESET"         "$_nm" "$_lab" "$ROLL_INDEX" "$_tot"
     printf '  표정 %s장  %s\n' "$(kao_frames "$_f")" "$(printf %s "$_f" | tr '#' ' ')"
 }
 
 if [ "$SUBCOMMAND" = roll ]; then
+    # 등급을 직접 고르는 건 메인테이너 키에서만 됩니다.
+    if [ -n "$ROLL_WANT" ]; then
+        do_roll "$ROLL_WANT"
+        case $? in
+            0)
+                printf '%s 등급으로 지정했습니다.\n\n' "$ROLL_WANT"
+                show_draw
+                exit 0
+                ;;
+            2)
+                printf '등급을 직접 고르는 건 메인테이너 키에서만 됩니다.\n'
+                printf '일반 사용자는 --roll 로 하루 한 번 뽑습니다.\n'
+                exit 1
+                ;;
+            3)
+                printf '그런 등급이 없습니다: %s\n' "$ROLL_WANT"
+                printf '고를 수 있는 값: common uncommon rare unique legend dev\n'
+                exit 1
+                ;;
+            *)
+                printf '지정에 실패했습니다.\n'
+                exit 1
+                ;;
+        esac
+    fi
+
     if can_roll; then
         if do_roll; then
             printf '오늘의 마스코트를 뽑았습니다!\n\n'
