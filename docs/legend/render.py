@@ -93,15 +93,34 @@ LEGEND_DESC = {
 # GRADIENT_STEPS cells around a closed loop, so the band flows back into
 # itself without a seam.
 PALETTES = {
-    'dawn':     ['5a2ea6', '9b3fc4', 'e05a9a', 'ff8a70', 'ffbf5c', 'ffe38a'],
-    'crimson':  ['6e0f3c', 'b3123f', 'ff2d6f', 'ff6fa3', 'ffa6c9'],
-    'royal':    ['a65a0f', 'e08a1e', 'ffc23a', 'ffe27a', 'fff2b3'],
-    'abyss':    ['12206e', '1f47c9', '2a8cff', '3fd9ff', '8ffff0'],
-    'amethyst': ['3b0f7a', '6e2ccf', 'a44dff', 'd67dff', 'f0b3ff'],
-    'ember':    ['6b0a0a', 'c41212', 'ff4d12', 'ff9a26', 'ffd54a'],
-    'radiance': ['9c8fe0', 'c4b9f2', 'ece6ff', 'ffffff', 'dfe3ec', 'bfc4d1'],
+    'dawn':     ['3b1a80', '8a2fbf', 'e04a9a', 'ff8a5c', 'ffc94d', 'fff0a0'],
+    'crimson':  ['4a0826', 'a50f3c', 'ff2d6f', 'ff7fb0', 'ffc4dc'],
+    'royal':    ['7a3d05', 'd17a10', 'ffbf2e', 'ffe27a', 'fff8c8'],
+    'abyss':    ['0a1250', '1a3bbf', '2a8cff', '4fe6ff', 'b0fff5'],
+    'amethyst': ['2a0866', '6a24d0', 'a44dff', 'dc8cff', 'f6ccff'],
+    'ember':    ['4a0505', 'b80f0f', 'ff4a10', 'ffa030', 'ffe066'],
+    'radiance': ['8a78e0', 'bfb2f5', 'ece6ff', 'ffffff', 'd0d5e0', 'a9afc0'],
 }
 GRADIENT_STEPS = 36
+
+# Unique wears one fixed gradient, lavender to deep purple, stretched across
+# the text with no motion: a clear step below legend, a clear step above rare.
+UNIQUE_KEYS = ['d2bcff', 'a877ff', '7a3fe6', '4a1a9c']
+UNIQUE_STEPS = 8
+
+
+def ramp_linear(keys, n):
+    """n cells from the first keyframe to the last, no loop."""
+    m = len(keys)
+    rgb = [tuple(int(k[i:i + 2], 16) for i in (0, 2, 4)) for k in keys]
+    out = []
+    for s in range(n):
+        pos = s * (m - 1) / max(n - 1, 1)
+        seg = min(int(pos), m - 2)
+        t = pos - seg
+        a, b = rgb[seg], rgb[seg + 1]
+        out.append('#%02x%02x%02x' % tuple(int(a[c] + (b[c] - a[c]) * t + 0.5) for c in range(3)))
+    return out
 
 
 def ramp(keys, n=GRADIENT_STEPS):
@@ -197,6 +216,14 @@ def cube_index(r, g, b):
     return 16 + 36 * q(r) + 6 * q(g) + q(b)
 
 
+def codes_of(hexes, true_color):
+    out = []
+    for h in hexes:
+        r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
+        out.append('38;2;%d;%d;%d' % (r, g, b) if true_color else '38;5;%d' % cube_index(r, g, b))
+    return out
+
+
 def ramp_codes(keys, true_color, n=GRADIENT_STEPS):
     """The SGR colour parameters of one ramp, precomputed for the scripts."""
     out = []
@@ -216,10 +243,12 @@ def ps_ramps():
            '$RampTrue = @{']
     for name in PALETTE_ORDER:
         out.append("    %s = '%s'" % (name, '|'.join(ramp_codes(PALETTES[name], True))))
+    out.append("    unique = '%s'" % '|'.join(codes_of(ramp_linear(UNIQUE_KEYS, UNIQUE_STEPS), True)))
     out.append('}')
     out.append('$Ramp256 = @{')
     for name in PALETTE_ORDER:
         out.append("    %s = '%s'" % (name, '|'.join(ramp_codes(PALETTES[name], False))))
+    out.append("    unique = '%s'" % '|'.join(codes_of(ramp_linear(UNIQUE_KEYS, UNIQUE_STEPS), False)))
     out.append('}')
     out.append("$LegendPalettes = @(%s)" % ', '.join("'%s'" % p for p in LEGEND_PALETTES))
     return chr(10).join(out)
@@ -231,8 +260,10 @@ def sh_ramps():
            '# xterm cube for terminals that only know 256 colours.']
     for name in PALETTE_ORDER:
         out.append("RAMP_TRUE_%s='%s'" % (name.upper(), ' '.join(ramp_codes(PALETTES[name], True))))
+    out.append("RAMP_TRUE_UNIQUE='%s'" % ' '.join(codes_of(ramp_linear(UNIQUE_KEYS, UNIQUE_STEPS), True)))
     for name in PALETTE_ORDER:
         out.append("RAMP_256_%s='%s'" % (name.upper(), ' '.join(ramp_codes(PALETTES[name], False))))
+    out.append("RAMP_256_UNIQUE='%s'" % ' '.join(codes_of(ramp_linear(UNIQUE_KEYS, UNIQUE_STEPS), False)))
     out.append("LEGEND_PALETTES='%s'" % ' '.join(LEGEND_PALETTES))
     return chr(10).join(out)
 
@@ -315,7 +346,12 @@ if __name__ == '__main__':
             ramp_ = ramp(PALETTES[LEGEND_PALETTES[i]])
             with open(os.path.join(outdir, 'legend-%d.svg' % (i + 1)), 'w', encoding='utf-8', newline='\n') as fh:
                 fh.write(svg(frames[0], ramp_))
-        print('wrote', len(FACES['legend']), 'svgs')
+        face = FACES['unique'][0][1][0]
+        lin = ramp_linear(UNIQUE_KEYS, UNIQUE_STEPS)
+        stretched = [lin[int(i * (len(lin) - 1) / max(len(face) - 1, 1))] for i in range(len(face))]
+        with open(os.path.join(outdir, 'unique.svg'), 'w', encoding='utf-8', newline='\n') as fh:
+            fh.write(svg(face, stretched))
+        print('wrote', len(FACES['legend']), 'legend svgs + unique.svg')
     elif cmd == 'count':
         for t in TIER_ORDER:
             print(t, len(FACES[t]))

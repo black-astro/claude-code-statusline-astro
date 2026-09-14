@@ -31,7 +31,10 @@ allowed-tools: Bash
   얼굴은 53종이고 하나마다 영어 이름이 있습니다. 레전드는 글자마다 색이 흐릅니다.
   뽑기는 하루 한 번, 직접 돌립니다. 뽑기 전까지 지금 얼굴이 유지됩니다.
 
-설정
-  스크립트 맨 위 블록에서 막대 모양 · 색 기준 · 마스코트 on/off 를 바꿉니다.
-  자세한 내용은 저장소 README 를 참고하세요.
+옵션 (~/.claude/settings.json 의 "env" 에 넣고 Claude Code 재시작)
+  STATUSLINE_MASCOT=0      마스코트 숨기기
+  STATUSLINE_TALK=0        얼굴만, 대사 없이
+  STATUSLINE_SEVEN_DAY=1   주간(7일) 게이지 표시
+  STATUSLINE_TRUE_COLOR=0  256색 터미널용
+  NO_COLOR=1               색 전부 끄기
 ```
