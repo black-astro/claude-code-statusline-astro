@@ -86,7 +86,7 @@ LEGEND_DESC = {
     'royal':    '주홍에서 살구색으로',
     'abyss':    '청록에서 얼음빛으로',
     'amethyst': '연초록에서 남색으로',
-    'ember':    '검붉은색에서 붉은색으로',
+    'ember':    '진한 붉은색에서 연한 붉은색으로',
     'radiance': '연보라에서 흰빛과 은색으로',
 }
 # RGB keyframes of each legend ramp. The scripts interpolate them into
@@ -101,7 +101,7 @@ PALETTES = {
     'royal':    ['8a2a00', 'e85d04', 'ff9a2e', 'ffc98a', 'ffe6c7'],
     'abyss':    ['00485a', '00a3c4', '3fe0ff', 'a8f4ff', 'e6fdff'],
     'amethyst': ['b8ffb0', '4fd66a', '1a9a7a', '1f5fa8', '0f2a6e'],
-    'ember':    ['3a0000', '8a0000', 'e00000', 'ff3b3b', 'ff8a7a'],
+    'ember':    ['b01e1e', 'd93434', 'ff5c5c', 'ff9090', 'ffbdb5'],
     'radiance': ['8a78e0', 'bfb2f5', 'ece6ff', 'ffffff', 'd0d5e0', 'a9afc0'],
 }
 GRADIENT_STEPS = 36
