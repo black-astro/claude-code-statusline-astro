@@ -19,7 +19,7 @@ param(
     [string]$Tier = ''
 )
 
-$StatuslineVersion = '1.5.0'
+$StatuslineVersion = '1.0.0'
 
 $ErrorActionPreference = 'SilentlyContinue'
 
