@@ -20,7 +20,7 @@ BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
-STATUSLINE_VERSION='1.0.0'
+STATUSLINE_VERSION='1.1.0'
 
 # Run with no arguments (the way Claude Code calls it) to print the status line.
 #   --roll      roll today's mascot (once a day) and exit
@@ -397,13 +397,20 @@ meter() {
 #
 # Faces are separated by '|' and their frames by '#'; no face contains either
 # character, so cut can index them. Spoken lines use the same convention.
-KAO_ERROR='（；へ：）#（；ω；）'
-KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´－ω－）|（ ˘ω˘ ）#（ ˘ᴗ˘ ）|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（・◡・）#（－◡－）|（￢_￢）#（￢ω￢）|（＝_＝）#（＝ω＝）|（・_・）#（－_－）|（≖‿≖）#（≖_≖）|（◣_◢）#（◢_◣）|（ーωー）#（ー_ー）'
-KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡－ω－｡）|（^▽^）#（^ᴗ^）|（◕‿◕）#（◠‿◠）|（≧ω≦）#（≧ᴗ≦）|（･ω<）#（･ᴗ<）|（ㆆ_ㆆ）#（ㆆωㆆ）|（◔_◔）#（◔ω◔）|（◓_◓）#（◓ω◓）|（・ㅂ・）#（－ㅂ－）|（¬‿¬）#（¬ω¬）|（◑_◑）#（◑ω◑）'
-KAO_RARE='（๑˃ᴗ˂）✧#（๑˃ᴗ˂）✦|ヽ（•‿•）ノ#ヾ（•‿•）ﾉ|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（๑✧‿✧๑）#（๑✦‿✦๑）|ヽ（^ω^）ノ#ヾ（^ᴗ^）ﾉ|（￣ｰ￣）✧#（￣ｰ￣）✦|（▼ω▼）✧#（▼ω▼）✦|（◣ω◢）✧#（◢ω◣）✦|（￢‿￢）✧#（￢‿￢）✦|（★ω★）#（☆ω☆）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜'
-KAO_UNIQUE='✧ヽ（☆▽☆）ノ✧#✦ヾ（★▽★）ﾉ✦|✧（ﾉ◕ヮ◕）ﾉ✧#✦（ヽ◕ヮ◕）ヽ✦|✧（๑♡‿♡๑）✧#✦（๑♥‿♥๑）✦|✧ヽ（✧∇✧）ノ✧#✦ヾ（✦▽✦）ﾉ✦|✧＼（◕ᴗ◕）／✧#✦＼（◠ᴗ◠）／✦|✧ヽ（￣ヘ￣）ﾉ✧#✦ヾ（￣ヘ￣）ﾉ✦|✧（╬◣_◢）ﾉ✧#✦（╬◢_◣）ヽ✦|✧ヽ（￢_￢）ﾉ✧#✦ヾ（￢ω￢）ﾉ✦|✧ヽ（╬￣ヘ￣）✧#✦ヾ（╬￣ヘ￣）✦|✧ᕙ（⇀‸↼）ᕗ✧#✦ᕦ（⇀‸↼）ᕤ✦'
-KAO_LEGEND='･ﾟ✧（◕ᴗ◕）✧ﾟ･#･ﾟ✦（◕ᴗ◕）✦ﾟ･#･ﾟ✧（◕ᴗ◕）✦ﾟ･#･ﾟ✦（◕ᴗ◕）✧ﾟ･|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ﾉ♥#♡ヾ（♥‿♥）ﾉ♡#♥ヽ（♡‿♡）ノ♥|✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✦#✧ﾟ（ヽ≧∇≦）ヽﾟ✧#✦ﾟ（ヽ≧▽≦）ヽﾟ✦|♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪#♫ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♫#♩ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♩#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬|･ﾟ✧（￣ヘ￣）✧ﾟ･#･ﾟ✦（￣ヘ￣）✦ﾟ･#･ﾟ✧（￣ヘ￣）✦ﾟ･#･ﾟ✦（￣ヘ￣）✧ﾟ･|✦ﾟ（╬◣_◢）ﾟ✦#✧ﾟ（╬◢_◣）ﾟ✧#✦ﾟ（╬◢_◣）ﾟ✦#✧ﾟ（╬◣_◢）ﾟ✧|≪✧（╬▼_▼）✧≫#≪✦（╬▼_▼）✦≫#≪✧（╬▼ω▼）✦≫#≪✦（╬▼ω▼）✧≫'
-KAO_DEV='｛・ω・｝#｛－ω－｝|⟨◕ᴗ◕⟩#⟨◠ᴗ◠⟩|［◉_◉］#［◎_◎］|⟨◣_◢⟩#⟨◢_◣⟩'
+KAO_ERROR='（；へ；）#（；ㅅ；）'
+KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´-ω-）|（ ˘ω˘ ）z#（ ˘ω˘ ）Z|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（・◡・）#（－◡－）|（￢_￢）#（￢‿￢）|（＝_＝）#（＝.＝）|（・_・）#（－_－）|（≖‿≖）#（≖_≖）|（◣_◢）#（◢_◣）|（ー_ー）#（ー.ー）'
+KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡-ω-｡）|（^▽^）#（^∇^）|（◕‿◕）#（◠‿◠）|（≧ω≦）#（≧▽≦）|（･ω<）#（-ω<）|（ㆆ_ㆆ）#（ㆆ.ㆆ）|（◔_◔）#（◔‸◔）|（◓_◓）#（◒_◒）|（・ㅂ・）#（－ㅂ－）|（¬‿¬）#（¬_¬）|（◑_◑）#（◐_◐）'
+KAO_RARE='（๑˃ᴗ˂）✧#（๑˂ᴗ˃）✦|ヽ（•‿•）ノ#ヾ（•‿•）ノ|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（๑✧‿✧๑）#（๑✦‿✦๑）|ヽ（^ω^）ノ#ヾ（^ω^）ノ|（￣ｰ￣）✧#（￣ｰ￣）✦|（▼ω▼）✧#（▼ω▼）✦|（◣ω◢）✧#（◢ω◣）✦|（￢‿￢）✧#（￢‿￢）✦|（★ω★）#（☆ω☆）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜'
+KAO_UNIQUE='✧ヽ（☆▽☆）ノ✧#✦ヾ（★▽★）ノ✦|✧（ﾉ◕ヮ◕）ﾉ✧#✦（ﾉ◠ヮ◠）ﾉ✦|✧（๑♡‿♡๑）✧#✦（๑♥‿♥๑）✦|✧ヽ（✧∇✧）ノ✧#✦ヾ（✦▽✦）ノ✦|✧＼（◕ᴗ◕）／✧#✦＼（◠ᴗ◠）／✦|✧ヽ（￣ヘ￣）ノ✧#✦ヾ（￣ヘ￣）ノ✦|✧ヽ（╬◣_◢）ノ✧#✦ヽ（╬◢_◣）ノ✦|✧ヽ（￢_￢）ノ✧#✦ヾ（￢‿￢）ノ✦|✧ヽ（╬￣ヘ￣）ノ✧#✦ヾ（╬￣ヘ￣）ノ✦|✧┗（⇀‸↼）┛✧#✦┗（⇀‸↼）┛✦'
+KAO_LEGEND='･ﾟ✧（◕ᴗ◕）✧ﾟ･#･ﾟ✦（◕ᴗ◕）✦ﾟ･#･ﾟ✧（◕ᴗ◕）✦ﾟ･#･ﾟ✦（◕ᴗ◕）✧ﾟ･|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ノ♥#♡ヾ（♥‿♥）ノ♡#♥ヽ（♡‿♡）ノ♥|✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✦#✧ﾟ（ﾉ≧∇≦）ﾉﾟ✦#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✧|♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬#♩ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♩#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬|･ﾟ✧（￣ヘ￣）✧ﾟ･#･ﾟ✦（￣ヘ￣）✦ﾟ･#･ﾟ✧（￣ヘ￣）✦ﾟ･#･ﾟ✦（￣ヘ￣）✧ﾟ･|✦ﾟ（╬◣_◢）ﾟ✦#✧ﾟ（╬◢_◣）ﾟ✧#✦ﾟ（╬◢_◣）ﾟ✦#✧ﾟ（╬◣_◢）ﾟ✧|≪✧（╬▼_▼）✧≫#≪✦（╬▼_▼）✦≫#≪✧（╬▼_▼）✦≫#≪✦（╬▼_▼）✧≫'
+KAO_DEV='｛・ω・｝#｛－ω－｝|⟨◕ᴗ◕⟩#⟨◠ᴗ◠⟩|［◉_◉］#［◉‸◉］|⟨◣_◢⟩#⟨◢_◣⟩'
+
+NAME_COMMON='Kitten|Droopy|Snooze|Whiskers|Grin|Smiley|Side-eye|Meh|Blank|Smirk|Scowl|Deadpan'
+NAME_UNCOMMON='Giggle|Rosy|Beam|Bright|Squee|Wink|Stare|Eyeroll|Half-lid|Hamster|Sly|Shifty'
+NAME_RARE='Twinkle|Cheer|Glow|Hooray|Starry|Wave|Smug|Shades|Brat|Knowing|Starstruck|Gunslinger'
+NAME_UNIQUE='Superstar|Jubilee|Lovestruck|Dazzle|Hurrah|Boss|Fury|Skeptic|Villain|Grit'
+NAME_LEGEND='Halo|Heartthrob|Bliss|Serenade|Monarch|Wrath|Overlord'
+NAME_DEV='Root|Sudo|Kernel|Daemon'
 
 # The mascot only speaks while a turn runs, right after one ends, and when
 # something is waiting on you. The rest of the time it just sits there.
@@ -439,7 +446,7 @@ PAL_DAWN='55 90 125 161 197 203 209 215 221 215 209 203 197 161 125 90'
 PAL_EMBER='52 88 124 160 196 202 208 214 220 214 208 202 196 160 124 88'
 PAL_RADIANCE='104 105 111 147 183 189 225 231 255 254 252 254 255 231 189 147'
 PAL_ROYAL='58 94 130 166 202 208 214 220 226 220 214 208 202 166 130 94'
-LEGEND_PALETTES='dawn amethyst ember abyss royal crimson radiance'
+LEGEND_PALETTES='dawn crimson royal abyss amethyst ember radiance'
 
 legend_ramp() {
     case "$1" in
@@ -504,6 +511,17 @@ gacha_pool() {
     esac
 }
 
+name_pool() {
+    case "$1" in
+        common)   printf %s "$NAME_COMMON" ;;
+        uncommon) printf %s "$NAME_UNCOMMON" ;;
+        rare)     printf %s "$NAME_RARE" ;;
+        unique)   printf %s "$NAME_UNIQUE" ;;
+        legend)   printf %s "$NAME_LEGEND" ;;
+        dev)      printf %s "$NAME_DEV" ;;
+    esac
+}
+
 talk_pool() {
     case "$1.$2" in
         work.common)       printf %s "$TALK_WORK_COMMON" ;;
@@ -527,7 +545,8 @@ talk_pool() {
     esac
 }
 
-# Sets ROLL_DATE / ROLL_EPOCH / ROLL_TIER / ROLL_INDEX from the stored roll, or
+# Sets ROLL_DATE / ROLL_EPOCH / ROLL_TIER / ROLL_INDEX (counted from 0, like the
+# PowerShell version, so one cache directory reads the same on both) from the stored roll, or
 # returns 1 when there is none. A bad signature reads as no roll at all, so an
 # edited file loses the mascot rather than granting a better one.
 read_roll() {
@@ -551,6 +570,8 @@ read_roll() {
     ROLL_EPOCH=$3
     ROLL_TIER=$4
     ROLL_INDEX=$5
+    case "$ROLL_INDEX" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$ROLL_INDEX" -lt "$(kao_count "$(gacha_pool "$4")")" ] || return 1
     case "$ROLL_EPOCH" in ''|*[!0-9]*) ROLL_EPOCH=0 ;; esac
     return 0
 }
@@ -623,7 +644,7 @@ do_roll() {
 
     _kn=$(kao_count "$(gacha_pool "$ROLL_TIER")")
     [ "$_kn" -gt 0 ] || return 1
-    ROLL_INDEX=$(( _n2 % _kn + 1 ))
+    ROLL_INDEX=$(( _n2 % _kn ))
 
     ROLL_DATE=$(date +%Y%m%d 2>/dev/null)
     ROLL_EPOCH=$now
@@ -683,19 +704,25 @@ pick_talk() {
     kao_at "$_tp" "$(( _th % _tn + 1 ))"
 }
 
-# Reads the turn state the hooks left for this session and draws the face.
-# Prints nothing when nothing has been rolled yet or the hooks are not
-# installed, so the line then looks as it did before the mascot existed.
+# Draws the face for the current roll, animated by the turn state the hooks
+# left for this session. Prints nothing only when nothing has been rolled yet,
+# so the line then looks as it did before the mascot existed.
 mascot() {
     [ "$SHOW_MASCOT" -eq 1 ] || return 0
-    [ -n "$sid_key" ] || return 0
 
+    # The face is the machine-wide roll, so it shows in every session from the
+    # first redraw. The state file only adds what the turn is doing; until the
+    # hooks write one the mascot simply sits idle.
+    _state=idle
+    _stamp=0
     _mf="$CACHE_DIR/mascot-$sid_key.txt"
-    [ -f "$_mf" ] || return 0
-    _raw=$(cat "$_mf" 2>/dev/null) || return 0
-    [ -n "$_raw" ] || return 0
-    _state=$(printf %s "$_raw" | awk '{print $1}')
-    _stamp=$(printf %s "$_raw" | awk '{print $2}')
+    if [ -n "$sid_key" ] && [ -f "$_mf" ]; then
+        _raw=$(cat "$_mf" 2>/dev/null)
+        if [ -n "$_raw" ]; then
+            _state=$(printf %s "$_raw" | awk '{print $1}')
+            _stamp=$(printf %s "$_raw" | awk '{print $2}')
+        fi
+    fi
     case "$_stamp" in ''|*[!0-9]*) _stamp=0 ;; esac
 
     if [ "$_state" = error ]; then
@@ -709,7 +736,7 @@ mascot() {
     fi
 
     read_roll || return 0
-    _face=$(kao_at "$(gacha_pool "$ROLL_TIER")" "$ROLL_INDEX")
+    _face=$(kao_at "$(gacha_pool "$ROLL_TIER")" "$(( ROLL_INDEX + 1 ))")
     [ -n "$_face" ] || return 0
 
     _fn=$(kao_frames "$_face")
@@ -740,7 +767,7 @@ mascot() {
     _text="$(kao_frame "$_face" "$_fr")${_line}"
     # Legend shimmers: every character takes its own hue and the ramp drifts.
     if [ "$ROLL_TIER" = legend ] && [ -n "$RESET" ] && awk_counts_chars; then
-        _pn=$(printf %s "$LEGEND_PALETTES" | cut -d" " -f"$ROLL_INDEX")
+        _pn=$(printf %s "$LEGEND_PALETTES" | cut -d" " -f"$(( ROLL_INDEX + 1 ))")
         _ramp=$(legend_ramp "$_pn")
         _rn=0
         for _c in $_ramp; do _rn=$(( _rn + 1 )); done
@@ -754,7 +781,18 @@ mascot() {
 # ---- subcommands -----------------------------------------------------------
 # Never read stdin, so they work from a plain prompt.
 
-# Prints one roll as "（・ω・）  [커먼]", tier label included.
+# Paints one frame the way the status line would: the legend gradient when it
+# is available, the flat tier colour otherwise.
+paint_face() {
+    if [ "$1" = legend ] && [ -n "$RESET" ] && awk_counts_chars; then
+        _pp=$(printf %s "$LEGEND_PALETTES" | cut -d" " -f"$(( $2 + 1 ))")
+        printf '%s%s' "$(grad_text "$3" 0 "$(legend_ramp "$_pp")")" "$RESET"
+    else
+        printf '%s%s%s' "$(tier_color "$1")" "$3" "$RESET"
+    fi
+}
+
+# Prints one roll as "（・ω・）  Kitten  [커먼 1/12]", name and tier included.
 show_draw() {
     case "$ROLL_TIER" in
         common)   _lab='커먼' ;;
@@ -764,9 +802,10 @@ show_draw() {
         legend)   _lab='레전드' ;;
         dev)      _lab='DEV' ;;
     esac
-    _f=$(kao_at "$(gacha_pool "$ROLL_TIER")" "$ROLL_INDEX")
+    _f=$(kao_at "$(gacha_pool "$ROLL_TIER")" "$(( ROLL_INDEX + 1 ))")
+    _nm=$(kao_at "$(name_pool "$ROLL_TIER")" "$(( ROLL_INDEX + 1 ))")
     _tot=$(kao_count "$(gacha_pool "$ROLL_TIER")")
-    printf '  %s%s%s  [%s %s/%s종]\n' "$(tier_color "$ROLL_TIER")" "$(kao_frame "$_f" 1)" "$RESET"         "$_lab" "$ROLL_INDEX" "$_tot"
+    printf '  %s  %s  [%s %s/%s]\n' "$(paint_face "$ROLL_TIER" "$ROLL_INDEX" "$(kao_frame "$_f" 1)")" "$_nm" "$_lab" "$(( ROLL_INDEX + 1 ))" "$_tot"
     printf '  표정 %s장  %s\n' "$(kao_frames "$_f")" "$(printf %s "$_f" | tr '#' ' ')"
 }
 
