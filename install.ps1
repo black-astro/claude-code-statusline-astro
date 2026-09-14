@@ -44,6 +44,7 @@ function Install-Script {
 
 Install-Script 'statusline.ps1' $target
 if (-not $NoMascot) { Install-Script 'mascot-hook.ps1' $hookTarget }
+if (-not $NoMascot) { Install-Script 'mascot.cmd' (Join-Path $claudeDir 'mascot.cmd') }
 
 # Forward slashes keep the JSON free of escaped backslashes.
 $commandPath = $target -replace '\\', '/'
@@ -123,3 +124,7 @@ $json = $data | ConvertTo-Json -Depth 32
 Write-Host "configured $settings"
 Write-Host ''
 Write-Host 'Done. Restart Claude Code (or open a new session) to see the status line.'
+if (-not $NoMascot) {
+    Write-Host ''
+    Write-Host '마스코트를 한 번 뽑아 주세요:  ~\.claude\mascot.cmd roll'
+}

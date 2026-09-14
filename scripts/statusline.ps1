@@ -54,7 +54,9 @@ $AnimSecs = 3
 # How long after a turn ends the mascot keeps talking. Past this it goes quiet
 # until the next turn, so an idle terminal is not left with a stale sentence.
 $TalkWindowSecs = 60
-# Rarity odds in per-mille, highest first. They must total 1000.
+# Rarity odds in per-mille, highest first, totalling 1000. These are fixed on
+# purpose: everyone rolls against the same table, and editing them turns the roll
+# into a choice, which is no roll at all.
 $MascotOdds = @{ common = 400; uncommon = 350; rare = 180; unique = 60; legend = 10 }
 
 # Maintainer tier. A key whose SHA-256 is listed here also rolls 'dev' faces;

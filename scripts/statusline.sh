@@ -20,32 +20,6 @@ BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
-STATUSLINE_VERSION='1.3.0'
-
-# Run with no arguments (the way Claude Code calls it) to print the status line.
-#   --version   print the version and exit
-#   --today     print today's mascot draw and exit
-#   --help      print a short usage summary and exit
-MASCOT_ONLY=0
-case "${1:-}" in
-    --version|-v)
-        printf 'claude-code-statusline-astro %s\n' "$STATUSLINE_VERSION"
-        exit 0
-        ;;
-    --help|-h)
-        printf 'claude-code-statusline-astro %s\n\n' "$STATUSLINE_VERSION"
-        printf '  statusline.sh            Claude Code calls this with session JSON on stdin\n'
-        printf '  statusline.sh --today    show the mascot drawn for today\n'
-        printf '  statusline.sh --version  show the version\n'
-        printf '  statusline.sh --help     this text\n\n'
-        printf 'Settings live at the top of this file. Update by re-running install.sh.\n'
-        exit 0
-        ;;
-    --today)
-        MASCOT_ONLY=1
-        ;;
-esac
-
 STATUSLINE_VERSION='1.4.0'
 
 # Run with no arguments (the way Claude Code calls it) to print the status line.
@@ -91,8 +65,9 @@ ANIM_SECS=3
 # How long after a turn ends the mascot keeps talking. Past this it goes quiet
 # until the next turn, so an idle terminal is not left with a stale sentence.
 TALK_WINDOW_SECS=60
-# Rarity odds in per-mille, lowest rarity first. They must total 1000 and line up
-# with MASCOT_TIERS below.
+# Rarity odds in per-mille, lowest rarity first, totalling 1000 and lined up with
+# MASCOT_TIERS below. These are fixed on purpose: everyone rolls against the same
+# table, and editing them turns the roll into a choice, which is no roll at all.
 MASCOT_ODDS='400 350 180 60 10'
 MASCOT_TIERS='common uncommon rare unique legend'
 

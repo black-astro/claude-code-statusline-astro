@@ -53,6 +53,7 @@ install_script() {
 
 install_script 'statusline.sh' "$TARGET"
 [ "$NO_MASCOT" -eq 1 ] || install_script 'mascot-hook.sh' "$HOOK_TARGET"
+[ "$NO_MASCOT" -eq 1 ] || install_script 'mascot' "${CLAUDE_DIR}/mascot"
 
 CMD="sh \"${TARGET}\""
 HOOK="sh \"${HOOK_TARGET}\""
@@ -166,3 +167,7 @@ fi
 echo "configured ${SETTINGS}"
 echo ''
 echo 'Done. Restart Claude Code (or open a new session) to see the status line.'
+if [ "$NO_MASCOT" -eq 0 ]; then
+    echo ''
+    echo "마스코트를 한 번 뽑아 주세요:  ~/.claude/mascot roll"
+fi
