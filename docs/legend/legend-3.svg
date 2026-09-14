@@ -1,16 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="214" height="42" viewBox="0 0 214 42" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" width="242" height="42" viewBox="0 0 242 42" role="img">
 <rect width="100%" height="100%" rx="6" fill="#0d1117"/>
 <g font-family="'Segoe UI Symbol','Malgun Gothic','Noto Sans CJK KR','Apple SD Gothic Neo','Noto Sans Symbols 2','DejaVu Sans',monospace" font-size="22" dominant-baseline="middle">
 <text x="10.0" y="22.0" fill="#8a78e0">《</text>
 <text x="32.0" y="22.0" fill="#9382e4">◆</text>
-<text x="45.6" y="22.0" fill="#9c8be7">·</text>
-<text x="59.2" y="22.0" fill="#a595eb">（</text>
-<text x="81.3" y="22.0" fill="#ad9fee">▼</text>
-<text x="94.9" y="22.0" fill="#b6a8f2">_</text>
-<text x="108.5" y="22.0" fill="#bfb2f5">▼</text>
-<text x="122.1" y="22.0" fill="#c7bbf7">）</text>
-<text x="144.1" y="22.0" fill="#cec3f8">†</text>
-<text x="157.7" y="22.0" fill="#d6ccfa">·</text>
-<text x="171.3" y="22.0" fill="#ddd5fc">◆</text>
-<text x="184.9" y="22.0" fill="#e5ddfd">》</text>
+<text x="45.6" y="22.0" fill="#9c8be7"> </text>
+<text x="59.2" y="22.0" fill="#a595eb">·</text>
+<text x="72.8" y="22.0" fill="#ad9fee">（</text>
+<text x="94.9" y="22.0" fill="#b6a8f2">▼</text>
+<text x="108.5" y="22.0" fill="#bfb2f5">_</text>
+<text x="122.1" y="22.0" fill="#c7bbf7">▼</text>
+<text x="135.7" y="22.0" fill="#cec3f8">）</text>
+<text x="157.7" y="22.0" fill="#d6ccfa">†</text>
+<text x="171.3" y="22.0" fill="#ddd5fc">·</text>
+<text x="184.9" y="22.0" fill="#e5ddfd"> </text>
+<text x="198.5" y="22.0" fill="#ece6ff">◆</text>
+<text x="212.1" y="22.0" fill="#efeaff">》</text>
 </g></svg>
