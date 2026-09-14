@@ -257,11 +257,11 @@ $Palettes = @{
     crimson = @(52, 53, 89, 125, 161, 197, 198, 199, 200, 201, 200, 199, 198, 197, 161, 125)
     dawn = @(55, 56, 57, 93, 129, 165, 201, 206, 211, 216, 221, 220, 214, 208, 172, 129)
     ember = @(52, 88, 124, 160, 196, 202, 208, 214, 220, 214, 208, 202, 196, 160, 124, 88)
-    obsidian = @(232, 233, 234, 235, 236, 238, 240, 243, 246, 250, 252, 250, 246, 243, 240, 236)
+    radiance = @(104, 105, 111, 147, 183, 189, 225, 231, 255, 254, 252, 254, 255, 231, 189, 147)
     royal = @(58, 94, 130, 166, 202, 208, 214, 220, 226, 220, 214, 208, 202, 166, 130, 94)
 }
 # 레전드 얼굴 순서대로 쓰는 팔레트.
-$LegendPalettes = @('dawn', 'amethyst', 'ember', 'abyss', 'royal', 'crimson', 'obsidian')
+$LegendPalettes = @('dawn', 'amethyst', 'ember', 'abyss', 'royal', 'crimson', 'radiance')
 
 # Rarity -> faces -> frames.
 $KaoTable = @{
@@ -548,16 +548,6 @@ $TalkNotify = @{
     dev = @('입력 대기 중.', '확인 요망.')
 }
 $TalkError = @('앗...', '실패했어요...')
-
-# 얼굴 이름 — -Today 에서 종류를 보여줄 때 쓴다.
-$KaoNames = @{
-    common = @('웅크림', '보드람', '졸림', '고양이', '히죽', '순둥', '무심', '정색', '멍함', '실눈', '날섬', '심드렁')
-    uncommon = @('방긋', '동글', '활짝', '미소', '신남', '윙크', '시큰둥', '응시', '경계', '새침', '능글', '떨떠름')
-    rare = @('반짝', '만세', '빛나는미소', '환호', '두근', '신난만세', '냉정', '결의', '관조', '냉소', '별눈', '손짓')
-    unique = @('눈부심', '들뜸', '사랑', '환희', '두손번쩍', '위엄', '분노', '냉혹', '압도', '근육')
-    legend = @('축복', '사랑폭발', '승리', '노래', '군림', '각성', '심판')
-    dev = @('중괄호', '꺾쇠', '해커', '노려봄')
-}
 
 # Builds one frame from its code points. Every glyph is inside the BMP, so a
 # plain [char] cast is both correct and cheap enough to run every refresh.
@@ -861,11 +851,10 @@ function Show-Draw {
     $frames = @()
     foreach ($f in $face) { $frames += (New-Kao $f) }
 
-    $name = $KaoNames[$Draw.Tier][$Draw.Index]
     $total = $KaoTable[$Draw.Tier].Count
 
-    Write-Output ("  {0}  {1}  [{2} {3}/{4}종]" -f (Write-TierText $Draw.Tier $frames[0]),
-        $name, $label, ($Draw.Index + 1), $total)
+    Write-Output ("  {0}  [{1} {2}/{3}종]" -f (Write-TierText $Draw.Tier $frames[0]),
+        $label, ($Draw.Index + 1), $total)
     Write-Output ("  표정 {0}장  {1}" -f $frames.Count, ($frames -join '  '))
 }
 

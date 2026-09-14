@@ -409,24 +409,6 @@ KAO_DEV='｛・ω・｝#｛－ω－｝|⟨◕ᴗ◕⟩#⟨◠ᴗ◠⟩|［◉_�
 # something is waiting on you. The rest of the time it just sits there.
 TALK_ERROR='앗...|실패했어요...'
 
-# 얼굴 이름 — --today 에서 종류를 보여줄 때 쓴다.
-NAME_COMMON='웅크림|보드람|졸림|고양이|히죽|순둥|무심|정색|멍함|실눈|날섬|심드렁'
-NAME_UNCOMMON='방긋|동글|활짝|미소|신남|윙크|시큰둥|응시|경계|새침|능글|떨떠름'
-NAME_RARE='반짝|만세|빛나는미소|환호|두근|신난만세|냉정|결의|관조|냉소|별눈|손짓'
-NAME_UNIQUE='눈부심|들뜸|사랑|환희|두손번쩍|위엄|분노|냉혹|압도|근육'
-NAME_LEGEND='축복|사랑폭발|승리|노래|군림|각성|심판'
-NAME_DEV='중괄호|꺾쇠|해커|노려봄'
-
-name_pool() {
-    case "$1" in
-        common)   printf %s "$NAME_COMMON" ;;
-        uncommon) printf %s "$NAME_UNCOMMON" ;;
-        rare)     printf %s "$NAME_RARE" ;;
-        unique)   printf %s "$NAME_UNIQUE" ;;
-        legend)   printf %s "$NAME_LEGEND" ;;
-        dev)      printf %s "$NAME_DEV" ;;
-    esac
-}
 TALK_WORK_COMMON='끙...|우우|낑낑|웅...'
 TALK_WORK_UNCOMMON='하는 중!|조금만!|열일 중!|가는 중!'
 TALK_WORK_RARE='작업 중이에요|조금만 기다려요|거의 다 왔어요'
@@ -455,9 +437,9 @@ PAL_AMETHYST='54 55 56 57 93 129 165 201 207 213 219 213 207 201 165 93'
 PAL_CRIMSON='52 53 89 125 161 197 198 199 200 201 200 199 198 197 161 125'
 PAL_DAWN='55 56 57 93 129 165 201 206 211 216 221 220 214 208 172 129'
 PAL_EMBER='52 88 124 160 196 202 208 214 220 214 208 202 196 160 124 88'
-PAL_OBSIDIAN='232 233 234 235 236 238 240 243 246 250 252 250 246 243 240 236'
+PAL_RADIANCE='104 105 111 147 183 189 225 231 255 254 252 254 255 231 189 147'
 PAL_ROYAL='58 94 130 166 202 208 214 220 226 220 214 208 202 166 130 94'
-LEGEND_PALETTES='dawn amethyst ember abyss royal crimson obsidian'
+LEGEND_PALETTES='dawn amethyst ember abyss royal crimson radiance'
 
 legend_ramp() {
     case "$1" in
@@ -466,7 +448,7 @@ legend_ramp() {
         crimson)    printf %s "$PAL_CRIMSON" ;;
         dawn)       printf %s "$PAL_DAWN" ;;
         ember)      printf %s "$PAL_EMBER" ;;
-        obsidian)   printf %s "$PAL_OBSIDIAN" ;;
+        radiance)   printf %s "$PAL_RADIANCE" ;;
         royal)      printf %s "$PAL_ROYAL" ;;
         *)          printf %s "$PAL_AMETHYST" ;;
     esac
@@ -783,9 +765,8 @@ show_draw() {
         dev)      _lab='DEV' ;;
     esac
     _f=$(kao_at "$(gacha_pool "$ROLL_TIER")" "$ROLL_INDEX")
-    _nm=$(kao_at "$(name_pool "$ROLL_TIER")" "$ROLL_INDEX")
     _tot=$(kao_count "$(gacha_pool "$ROLL_TIER")")
-    printf '  %s%s%s  %s  [%s %s/%s종]\n' "$(tier_color "$ROLL_TIER")" "$(kao_frame "$_f" 1)" "$RESET"         "$_nm" "$_lab" "$ROLL_INDEX" "$_tot"
+    printf '  %s%s%s  [%s %s/%s종]\n' "$(tier_color "$ROLL_TIER")" "$(kao_frame "$_f" 1)" "$RESET"         "$_lab" "$ROLL_INDEX" "$_tot"
     printf '  표정 %s장  %s\n' "$(kao_frames "$_f")" "$(printf %s "$_f" | tr '#' ' ')"
 }
 
