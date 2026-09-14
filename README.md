@@ -165,7 +165,7 @@ DIR my-project | GIT main | MODEL Opus 5 | CTX [◼◼◻◻◻◻◻◻◻◻] 
 | 커먼 | 40% | 옅은 회색 | 12 |
 | 언커먼 | 35% | 초록 | 12 |
 | 레어 | 18% | 하늘색 | 12 |
-| 유니크 | 6% | 연보라에서 진보라로 (고정) | 10 |
+| 유니크 | 6% | 연보라에서 진보라 (고정) | 10 |
 | 레전드 | 1% | 얼굴마다 다른 색이 흐름 | 7 |
 
 확률은 누구에게나 같습니다.
@@ -176,13 +176,13 @@ DIR my-project | GIT main | MODEL Opus 5 | CTX [◼◼◻◻◻◻◻◻◻◻] 
 
 | 이름 | 얼굴 | 색 |
 | --- | --- | --- |
-| **Halo** | ![Halo](docs/legend/legend-1.svg) | 금빛에서 크림색으로 |
-| **Heartthrob** | ![Heartthrob](docs/legend/legend-2.svg) | 자주에서 분홍으로 |
-| **Bliss** | ![Bliss](docs/legend/legend-3.svg) | 주홍에서 살구색으로 |
-| **Serenade** | ![Serenade](docs/legend/legend-4.svg) | 청록에서 얼음빛으로 |
-| **Monarch** | ![Monarch](docs/legend/legend-5.svg) | 연초록에서 파랑으로 |
-| **Wrath** | ![Wrath](docs/legend/legend-6.svg) | 진한 붉은색에서 연한 붉은색으로 |
-| **Overlord** | ![Overlord](docs/legend/legend-7.svg) | 연보라에서 흰빛과 은색으로 |
+| **Halo** | ![Halo](docs/legend/legend-1.svg) | ![](docs/legend/swatch-1.svg) |
+| **Heartthrob** | ![Heartthrob](docs/legend/legend-2.svg) | ![](docs/legend/swatch-2.svg) |
+| **Bliss** | ![Bliss](docs/legend/legend-3.svg) | ![](docs/legend/swatch-3.svg) |
+| **Serenade** | ![Serenade](docs/legend/legend-4.svg) | ![](docs/legend/swatch-4.svg) |
+| **Monarch** | ![Monarch](docs/legend/legend-5.svg) | ![](docs/legend/swatch-5.svg) |
+| **Wrath** | ![Wrath](docs/legend/legend-6.svg) | ![](docs/legend/swatch-6.svg) |
+| **Overlord** | ![Overlord](docs/legend/legend-7.svg) | ![](docs/legend/swatch-7.svg) |
 
 | 이름 | 표정 |
 | --- | --- |
@@ -198,7 +198,7 @@ DIR my-project | GIT main | MODEL Opus 5 | CTX [◼◼◻◻◻◻◻◻◻◻] 
 
 연보라에서 진보라로 이어지는 색이 얼굴에 고정으로 입혀집니다. 흐르지는 않습니다.
 
-![유니크 색](docs/legend/unique.svg)
+![유니크 얼굴](docs/legend/unique.svg) ![유니크 색](docs/legend/swatch-unique.svg)
 
 | 이름 | 얼굴 | 표정 |
 | --- | --- | --- |
