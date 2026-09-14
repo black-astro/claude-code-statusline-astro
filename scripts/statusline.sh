@@ -64,6 +64,9 @@ SHOW_MASCOT_TALK=1
 # Seconds per animation step. Claude Code only redraws every refreshInterval,
 # so anything below that value changes nothing - keep the two in step.
 ANIM_SECS=3
+# 레전드 색 띠를 한 번에 몇 칸 밀지. 스크립트가 다시 불리는 주기는
+# refreshInterval 이 정하므로, 색만 빠르게 흐르게 하려면 이 값을 올린다.
+GRADIENT_SHIFT=4
 # How long after a turn ends the mascot keeps talking. Past this it goes quiet
 # until the next turn, so an idle terminal is not left with a stale sentence.
 TALK_WINDOW_SECS=60
@@ -395,24 +398,24 @@ meter() {
 # Faces are separated by '|' and their frames by '#'; no face contains either
 # character, so cut can index them. Spoken lines use the same convention.
 KAO_ERROR='（；へ：）#（；ω；）'
-KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´－ω－）|（・_・）#（－_－）|（ ˘ω˘ ）#（ ˘ᴗ˘ ）|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（＞ω＜）#（＞ᴗ＜）|（・ｖ・）#（－ｖ－）|（^_^）#（^ω^）|（・◡・）#（－◡－）|（≖‿≖）#（≖_≖）|（◣_◢）#（◢_◣）'
-KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡－ω－｡）|（^▽^）#（^ᴗ^）|（・ㅂ・）#（－ㅂ－）|（◕‿◕）#（◠‿◠）|（๑•ᴗ•๑）#（๑-ᴗ-๑）|（≧ω≦）#（≧ᴗ≦）|（･ω<）#（･ᴗ<）|（。◕‿◕。）#（。◠‿◠。）|（＾▽＾）#（＾ᴗ＾）|（･◡･）#（･ᴗ･）|（¬‿¬）#（¬ω¬）'
-KAO_RARE='（๑˃ᴗ˂）✧#（๑˃ᴗ˂）✦|ヽ（•‿•）ノ#ヾ（•‿•）ﾉ|（★ω★）#（☆ω☆）|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（✧ω✧）#（✦ω✦）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜|（๑✧‿✧๑）#（๑✦‿✦๑）|（★‿★）#（☆‿☆）|（≧∇≦）✧#（≧▽≦）✦|ヽ（^ω^）ノ#ヾ（^ᴗ^）ﾉ|（･∀･）✧#（･∀･）✦'
-KAO_UNIQUE='✧ヽ（☆▽☆）ノ✧#✦ヾ（★▽★）ﾉ✦|✧ヽ（°〇°）ﾉ✧#✦ヾ（°Д°）ﾉ✦|✧（ﾉ◕ヮ◕）ﾉ✧#✦（ヽ◕ヮ◕）ヽ✦|✧（๑♡‿♡๑）✧#✦（๑♥‿♥๑）✦|✧ᕙ（⇀‸↼）ᕗ✧#✦ᕦ（⇀‸↼）ᕤ✦|✧ヽ（✧∇✧）ノ✧#✦ヾ（✦▽✦）ﾉ✦|✧（＠◕ᴗ◕＠）✧#✦（＠◠ᴗ◠＠）✦|✧（ﾉ≧ڡ≦）ﾉ✧#✦（ヽ≧ڡ≦）ヽ✦|✧＼（◕ᴗ◕）／✧#✦＼（◠ᴗ◠）／✦'
-KAO_LEGEND='･ﾟ✧（◕ᴗ◕）✧ﾟ･#･ﾟ✦（◕ᴗ◕）✦ﾟ･#･ﾟ✧（◕ᴗ◕）✦ﾟ･#･ﾟ✦（◕ᴗ◕）✧ﾟ･|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ﾉ♥#♡ヾ（♥‿♥）ﾉ♡#♥ヽ（♡‿♡）ノ♥|✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✦#✧ﾟ（ヽ≧∇≦）ヽﾟ✧#✦ﾟ（ヽ≧▽≦）ヽﾟ✦|♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪#♫ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♫#♩ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♩#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬|☆彡（✧ᴗ✧）彡☆#★彡（✦ᴗ✦）彡★#☆彡（★ᴗ★）彡☆#★彡（☆ᴗ☆）彡★'
-KAO_DEV='［◉_◉］#［◎_◎］|｛・ω・｝#｛－ω－｝|⟨◕ᴗ◕⟩#⟨◠ᴗ◠⟩|（＄_＄）#（￥_￥）'
+KAO_COMMON='（・ω・）#（－ω－）|（´･ω･）#（´－ω－）|（ ˘ω˘ ）#（ ˘ᴗ˘ ）|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（・◡・）#（－◡－）|（￢_￢）#（￢ω￢）|（＝_＝）#（＝ω＝）|（・_・）#（－_－）|（≖‿≖）#（≖_≖）|（◣_◢）#（◢_◣）|（ーωー）#（ー_ー）'
+KAO_UNCOMMON='（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡－ω－｡）|（^▽^）#（^ᴗ^）|（◕‿◕）#（◠‿◠）|（≧ω≦）#（≧ᴗ≦）|（･ω<）#（･ᴗ<）|（ㆆ_ㆆ）#（ㆆωㆆ）|（◔_◔）#（◔ω◔）|（◓_◓）#（◓ω◓）|（・ㅂ・）#（－ㅂ－）|（¬‿¬）#（¬ω¬）|（◑_◑）#（◑ω◑）'
+KAO_RARE='（๑˃ᴗ˂）✧#（๑˃ᴗ˂）✦|ヽ（•‿•）ノ#ヾ（•‿•）ﾉ|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（๑✧‿✧๑）#（๑✦‿✦๑）|ヽ（^ω^）ノ#ヾ（^ᴗ^）ﾉ|（￣ｰ￣）✧#（￣ｰ￣）✦|（▼ω▼）✧#（▼ω▼）✦|（◣ω◢）✧#（◢ω◣）✦|（￢‿￢）✧#（￢‿￢）✦|（★ω★）#（☆ω☆）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜'
+KAO_UNIQUE='✧ヽ（☆▽☆）ノ✧#✦ヾ（★▽★）ﾉ✦|✧（ﾉ◕ヮ◕）ﾉ✧#✦（ヽ◕ヮ◕）ヽ✦|✧（๑♡‿♡๑）✧#✦（๑♥‿♥๑）✦|✧ヽ（✧∇✧）ノ✧#✦ヾ（✦▽✦）ﾉ✦|✧＼（◕ᴗ◕）／✧#✦＼（◠ᴗ◠）／✦|✧ヽ（￣ヘ￣）ﾉ✧#✦ヾ（￣ヘ￣）ﾉ✦|✧（╬◣_◢）ﾉ✧#✦（╬◢_◣）ヽ✦|✧ヽ（￢_￢）ﾉ✧#✦ヾ（￢ω￢）ﾉ✦|✧ヽ（╬￣ヘ￣）✧#✦ヾ（╬￣ヘ￣）✦|✧ᕙ（⇀‸↼）ᕗ✧#✦ᕦ（⇀‸↼）ᕤ✦'
+KAO_LEGEND='･ﾟ✧（◕ᴗ◕）✧ﾟ･#･ﾟ✦（◕ᴗ◕）✦ﾟ･#･ﾟ✧（◕ᴗ◕）✦ﾟ･#･ﾟ✦（◕ᴗ◕）✧ﾟ･|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ﾉ♥#♡ヾ（♥‿♥）ﾉ♡#♥ヽ（♡‿♡）ノ♥|✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✦#✧ﾟ（ヽ≧∇≦）ヽﾟ✧#✦ﾟ（ヽ≧▽≦）ヽﾟ✦|♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪#♫ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♫#♩ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♩#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬|･ﾟ✧（￣ヘ￣）✧ﾟ･#･ﾟ✦（￣ヘ￣）✦ﾟ･#･ﾟ✧（￣ヘ￣）✦ﾟ･#･ﾟ✦（￣ヘ￣）✧ﾟ･|✦ﾟ（╬◣_◢）ﾟ✦#✧ﾟ（╬◢_◣）ﾟ✧#✦ﾟ（╬◢_◣）ﾟ✦#✧ﾟ（╬◣_◢）ﾟ✧|≪✧（╬▼_▼）✧≫#≪✦（╬▼_▼）✦≫#≪✧（╬▼ω▼）✦≫#≪✦（╬▼ω▼）✧≫'
+KAO_DEV='｛・ω・｝#｛－ω－｝|⟨◕ᴗ◕⟩#⟨◠ᴗ◠⟩|［◉_◉］#［◎_◎］|⟨◣_◢⟩#⟨◢_◣⟩'
 
 # The mascot only speaks while a turn runs, right after one ends, and when
 # something is waiting on you. The rest of the time it just sits there.
 TALK_ERROR='앗...|실패했어요...'
 
 # 얼굴 이름 — --today 에서 종류를 보여줄 때 쓴다.
-NAME_COMMON='웅크림|보드람|멍함|졸림|고양이|히죽|찡긋|무표정|싱글|순둥|실눈|날섬'
-NAME_UNCOMMON='방긋|동글|활짝|새침|미소|초롱|신남|윙크|방실|함박|다정|능글'
-NAME_RARE='반짝|만세|별눈|빛나는미소|환호|광채|손짓|두근|별빛|폭소|신난만세|흐뭇'
-NAME_UNIQUE='눈부심|깜짝|들뜸|사랑|근육|환희|볼빨강|군침|두손번쩍'
-NAME_LEGEND='축복|사랑폭발|승리|노래|별빛세례'
-NAME_DEV='해커|중괄호|꺾쇠|머니'
+NAME_COMMON='웅크림|보드람|졸림|고양이|히죽|순둥|무심|정색|멍함|실눈|날섬|심드렁'
+NAME_UNCOMMON='방긋|동글|활짝|미소|신남|윙크|시큰둥|응시|경계|새침|능글|떨떠름'
+NAME_RARE='반짝|만세|빛나는미소|환호|두근|신난만세|냉정|결의|관조|냉소|별눈|손짓'
+NAME_UNIQUE='눈부심|들뜸|사랑|환희|두손번쩍|위엄|분노|냉혹|압도|근육'
+NAME_LEGEND='축복|사랑폭발|승리|노래|군림|각성|심판'
+NAME_DEV='중괄호|꺾쇠|해커|노려봄'
 
 name_pool() {
     case "$1" in
@@ -445,8 +448,29 @@ TALK_NOTIFY_DEV='입력 대기 중.|확인 요망.'
 
 MASCOT_TIERS='common uncommon rare unique legend'
 
-# The legend gradient walks this ramp, one hue per character.
-RAINBOW='196 202 208 214 220 190 118 46 48 51 45 39 63 99 129 201'
+# Legend gradients. Each legend face flows through its own ramp - a narrow
+# band of hues moved by brightness, rather than a full trip round the wheel.
+PAL_ABYSS='17 18 19 20 26 32 38 44 51 45 39 33 27 21 19 18'
+PAL_AMETHYST='54 55 56 57 93 129 165 201 207 213 219 213 207 201 165 93'
+PAL_CRIMSON='52 53 89 125 161 197 198 199 200 201 200 199 198 197 161 125'
+PAL_DAWN='55 56 57 93 129 165 201 206 211 216 221 220 214 208 172 129'
+PAL_EMBER='52 88 124 160 196 202 208 214 220 214 208 202 196 160 124 88'
+PAL_OBSIDIAN='232 233 234 235 236 238 240 243 246 250 252 250 246 243 240 236'
+PAL_ROYAL='58 94 130 166 202 208 214 220 226 220 214 208 202 166 130 94'
+LEGEND_PALETTES='dawn amethyst ember abyss royal crimson obsidian'
+
+legend_ramp() {
+    case "$1" in
+        abyss)      printf %s "$PAL_ABYSS" ;;
+        amethyst)   printf %s "$PAL_AMETHYST" ;;
+        crimson)    printf %s "$PAL_CRIMSON" ;;
+        dawn)       printf %s "$PAL_DAWN" ;;
+        ember)      printf %s "$PAL_EMBER" ;;
+        obsidian)   printf %s "$PAL_OBSIDIAN" ;;
+        royal)      printf %s "$PAL_ROYAL" ;;
+        *)          printf %s "$PAL_AMETHYST" ;;
+    esac
+}
 
 kao_count() { printf %s "$1" | awk -F'|' '{print NF}'; }
 kao_at() { printf %s "$1" | cut -d'|' -f"$2"; }
@@ -649,13 +673,13 @@ tier_color() {
 # characters rather than bytes. gawk in a UTF-8 locale does; mawk and busybox
 # awk do not, and there the caller falls back to one flat color.
 awk_counts_chars() {
-    [ "$(printf %s "\u00ac\u203f" | awk '{print length($0)}' 2>/dev/null)" = 2 ]
+    [ "$(printf %s "¬‿" | awk '{print length($0)}' 2>/dev/null)" = 2 ]
 }
 
 # Paints every character its own hue along the rainbow and drifts the whole ramp
 # one step per animation tick, so the color flows across the text.
 grad_text() {
-    printf %s "$1" | awk -v off="$2" -v esc="$ESC" -v rb="$RAINBOW" '
+    printf %s "$1" | awk -v off="$2" -v esc="$ESC" -v rb="$3" '
         BEGIN { n = split(rb, C, " ") }
         {
             for (i = 1; i <= length($0); i++) {
@@ -734,11 +758,13 @@ mascot() {
     _text="$(kao_frame "$_face" "$_fr")${_line}"
     # Legend shimmers: every character takes its own hue and the ramp drifts.
     if [ "$ROLL_TIER" = legend ] && [ -n "$RESET" ] && awk_counts_chars; then
+        _pn=$(printf %s "$LEGEND_PALETTES" | cut -d" " -f"$ROLL_INDEX")
+        _ramp=$(legend_ramp "$_pn")
         _rn=0
-        for _c in $RAINBOW; do _rn=$(( _rn + 1 )); done
+        for _c in $_ramp; do _rn=$(( _rn + 1 )); done
         _off=0
-        [ "$now" -gt 0 ] && _off=$(( (now / ANIM_SECS) % _rn ))
-        printf '%s' "$(grad_text "$_text" "$_off")${RESET}"
+        [ "$now" -gt 0 ] && _off=$(( ((now / ANIM_SECS) * GRADIENT_SHIFT) % _rn ))
+        printf '%s' "$(grad_text "$_text" "$_off" "$_ramp")${RESET}"
         return 0
     fi
     printf '%s' "$(tier_color "$ROLL_TIER")${_text}${RESET}"
