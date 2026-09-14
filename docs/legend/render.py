@@ -281,6 +281,75 @@ def sh_ramps():
     return chr(10).join(out)
 
 
+def html_page():
+    import json
+    tiers = []
+    for t in TIER_ORDER:
+        tiers.append({'tier': t, 'faces': [{'name': n, 'frames': f} for n, f in FACES[t]]})
+    ramps = {name: ramp(PALETTES[name]) for name in PALETTE_ORDER}
+    data = {
+        'tiers': tiers,
+        'legendPalettes': LEGEND_PALETTES,
+        'ramps': ramps,
+        'unique': ramp_linear(UNIQUE_KEYS, UNIQUE_STEPS),
+        'flat': {'common': xterm_hex(253), 'uncommon': xterm_hex(82), 'rare': xterm_hex(117)},
+        'labels': {'common': '커먼', 'uncommon': '언커먼', 'rare': '레어', 'unique': '유니크', 'legend': '레전드'},
+        'talk': {'common': '냥!', 'uncommon': '다했다!', 'rare': '끝났어요', 'unique': '다 끝냈습니다!', 'legend': '전부 끝냈습니다, 확인 부탁드려요!'},
+    }
+    return """<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>statusline preview</title>
+<style>
+body{margin:0;padding:24px;background:#0d1117;color:#c9d1d9;font:14px/1.6 'Cascadia Code','D2Coding','JetBrains Mono','Consolas','Malgun Gothic','Noto Sans CJK KR','Apple SD Gothic Neo',monospace}
+h1{font-size:18px;margin:0 0 4px}
+p.note{color:#8b949e;margin:0 0 24px;font-size:13px}
+h2{font-size:15px;margin:28px 0 10px;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d;padding-bottom:4px}
+table{border-collapse:collapse}
+td{padding:6px 14px 6px 0;vertical-align:middle;white-space:nowrap}
+td.name{color:#8b949e;width:110px}
+td.face{font-size:22px;letter-spacing:1px}
+td.line{font-size:16px}
+.sw{display:inline-block;width:18px;height:18px;border-radius:4px;margin-right:3px;vertical-align:middle}
+.bar{margin-top:32px;font-size:15px;color:#8b949e}
+.bar b{color:#fff;font-weight:normal}
+.g{color:#00ff00}.m{color:#ff5fff}.y{color:#ffff5f}
+</style></head><body>
+<h1>claude-statusline-astro 미리보기</h1>
+<p class="note">터미널과 같은 규칙으로 그립니다. 표정은 2초마다 바뀌고, 레전드는 그라데이션 위에서 시계에 맞춰 반짝입니다. 검은 배경 기준입니다.</p>
+<div class="bar"><b>DIR</b> my-project <span style="color:#555">|</span> <b>GIT</b> <span class="m">main</span> <span style="color:#555">|</span> <b>MODEL</b> <span class="y">Opus 5</span> <span style="color:#555">|</span> <b>CTX</b> <span class="g">[◼◼◻◻◻◻◻◻◻◻] 21%</span> <span style="color:#555">|</span> <b>5H</b> <span class="g">[◼◼◼◻◻◻◻◻◻◻] 34%</span> <span style="color:#555">1h49m</span> <span id="barface"></span></div>
+<div id="root"></div>
+<script>
+const D = """ + json.dumps(data, ensure_ascii=False) + """;
+const root = document.getElementById('root');
+function hash(seed, i, every){ let x=(seed*31+i*7+13)%2147483647; x=(x*48271)%2147483647; x=(x*48271)%2147483647; return x%every===0; }
+function paintLegend(text, ramp, seed){
+  const n=ramp.length, lo=Math.floor(n/8), hi=Math.floor(n*3/8), peak=Math.floor(n/2), len=[...text].length;
+  return [...text].map((ch,i)=>{ const d=Math.abs(2*i-(len-1)); let idx=len>1? hi-Math.floor((hi-lo)*d/(len-1)) : hi; if(hash(seed,i,4)) idx=peak; return '<span style="color:'+ramp[idx]+'">'+ch+'</span>'; }).join('');
+}
+function paintUnique(text){ const r=D.unique, n=r.length, len=[...text].length; return [...text].map((ch,i)=>{ const idx=len>1?Math.floor(i*(n-1)/(len-1)):0; return '<span style="color:'+r[idx]+'">'+ch+'</span>'; }).join(''); }
+function flat(text,c){ return '<span style="color:'+c+'">'+text+'</span>'; }
+function render(){
+  const now=Math.floor(Date.now()/1000), frame=Math.floor(now/2), seed=now%1000003;
+  let html='';
+  D.tiers.forEach(t=>{
+    html+='<h2>'+D.labels[t.tier]+' · '+t.faces.length+'종</h2><table>';
+    t.faces.forEach((f,fi)=>{
+      const text=f.frames[frame%f.frames.length];
+      let face, line, sw='';
+      if(t.tier==='legend'){ const ramp=D.ramps[D.legendPalettes[fi]]; face=paintLegend(text,ramp,seed); line=paintLegend(D.talk.legend,ramp,seed+1); sw=[...Array(10).keys()].map(k=>'<i class="sw" style="background:'+ramp[Math.round(k*(ramp.length-1)/9)]+'"></i>').join(''); }
+      else if(t.tier==='unique'){ face=paintUnique(text); line=paintUnique(D.talk.unique); sw=[...Array(10).keys()].map(k=>'<i class="sw" style="background:'+D.unique[Math.round(k*(D.unique.length-1)/9)]+'"></i>').join(''); }
+      else { const c=D.flat[t.tier]; face=flat(text,c); line=flat(D.talk[t.tier],c); sw='<i class="sw" style="background:'+c+'"></i>'; }
+      html+='<tr><td class="name">'+f.name+'</td><td class="face">'+face+'</td><td class="line">'+line+'</td><td>'+sw+'</td></tr>';
+    });
+    html+='</table>';
+  });
+  root.innerHTML=html;
+  const w=D.tiers[4].faces[5]; document.getElementById('barface').innerHTML=paintLegend(w.frames[frame%4], D.ramps[D.legendPalettes[5]], seed)+' '+paintLegend(D.talk.legend, D.ramps[D.legendPalettes[5]], seed+1);
+}
+render(); setInterval(render, 2000);
+</script></body></html>
+"""
+
+
 XTERM = None
 
 
@@ -362,6 +431,10 @@ if __name__ == '__main__':
         print(ps_ramps())
     elif cmd == 'shramps':
         print(sh_ramps())
+    elif cmd == 'html':
+        with open(sys.argv[2], 'w', encoding='utf-8', newline=chr(10)) as fh:
+            fh.write(html_page())
+        print('wrote', sys.argv[2])
     elif cmd == 'shpal':
         print(sh_palettes())
     elif cmd == 'readme':
