@@ -19,7 +19,7 @@ param(
     [string]$Tier = ''
 )
 
-$StatuslineVersion = '1.3.1'
+$StatuslineVersion = '1.4.0'
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -56,11 +56,10 @@ $ShowMascotTalk = $true
 # Seconds per expression frame while a turn runs. Claude Code only redraws
 # every refreshInterval (the installer sets 2), so keep the two equal.
 $AnimSecs = 2
-# Legend gradient: how many cells the colour band travels per second. A ramp
-# is 36 cells long, so at 3 it comes full circle every 12 seconds. The band
-# moves on every redraw regardless of refreshInterval; a shorter interval only
-# makes the motion finer, never faster.
-$GradientSpeed = 3
+# Legend sparkle: the palette lies still across the face, and on every redraw
+# one character in SparkleEvery lights up towards white, picked by the clock
+# so the twinkle wanders. 1 lights everything, 0 turns the twinkle off.
+$SparkleEvery = 4
 # 24-bit colour for the legend ramp. Set $false on a terminal that only knows
 # 256 colours; the ramp then snaps to the nearest of those.
 $LegendTrueColor = $true
@@ -565,24 +564,46 @@ function Get-Ramp {
     return $ramp
 }
 
-# Paints every character its own colour along the ramp and slides the whole
-# band GradientSpeed cells per second, so the colour flows across the text.
+# One colour lifted towards white, for the sparkle. 24-bit codes are blended
+# 3/5 of the way; a 256-colour code just becomes white.
+function Get-Sparkle {
+    param([string]$Code)
+    if ($Code.StartsWith('38;2;')) {
+        $p = $Code.Split(';')
+        $r = [int]$p[2]; $g = [int]$p[3]; $b = [int]$p[4]
+        $r = $r + [int][Math]::Floor((255 - $r) * 3 / 5)
+        $g = $g + [int][Math]::Floor((255 - $g) * 3 / 5)
+        $b = $b + [int][Math]::Floor((255 - $b) * 3 / 5)
+        return "38;2;$r;$g;$b"
+    }
+    return '38;5;231'
+}
+
+# Paints the text with the palette stretched across it, dark to light to dark,
+# and makes a few characters twinkle. Which ones is decided by a small integer
+# hash of the clock and the position, so both implementations agree exactly;
+# Seed -1 means "now", any other seed gives a fixed picture.
 function Get-GradientText {
-    param([string]$Text, [string]$PaletteName, [int]$Offset = -1)
+    param([string]$Text, [string]$PaletteName, [long]$Seed = -1)
 
     if ([string]::IsNullOrEmpty($Reset) -or $Text.Length -eq 0) { return $Text }
     $ramp = Get-Ramp $PaletteName
     $n = $ramp.Count
-
-    $step = $Offset
-    if ($step -lt 0) {
-        $step = 0
-        if ($Now -gt 0) { $step = [int]([Math]::Floor($Now * $GradientSpeed) % $n) }
-    }
+    $len = $Text.Length
+    if ($Seed -lt 0) { $Seed = 0; if ($Now -gt 0) { $Seed = $Now % 1000003 } }
 
     $sb = [System.Text.StringBuilder]::new()
-    for ($i = 0; $i -lt $Text.Length; $i++) {
-        [void]$sb.Append($Esc).Append('[').Append($ramp[($step + $i) % $n]).Append('m').Append($Text[$i])
+    for ($i = 0; $i -lt $len; $i++) {
+        $idx = 0
+        if ($len -gt 1) { $idx = [int][Math]::Floor($i * ($n - 1) / ($len - 1)) }
+        $code = $ramp[$idx]
+        if ($SparkleEvery -gt 0) {
+            $x = ($Seed * 31 + $i * 7 + 13) % 2147483647
+            $x = ($x * 48271) % 2147483647
+            $x = ($x * 48271) % 2147483647
+            if (($x % $SparkleEvery) -eq 0) { $code = Get-Sparkle $code }
+        }
+        [void]$sb.Append($Esc).Append('[').Append($code).Append('m').Append($Text[$i])
     }
     return $sb.ToString()
 }
@@ -608,11 +629,11 @@ function Get-StaticGradientText {
 # Wraps text in the right paint for its tier: the flowing gradient is reserved
 # for legend, the fixed one for unique; every other tier takes one flat color.
 function Write-TierText {
-    param([string]$Tier, [string]$Text, [int]$Index = 0, [int]$Offset = -1)
+    param([string]$Tier, [string]$Text, [int]$Index = 0, [long]$Seed = -1)
 
     if ($Tier -eq 'legend') {
         $name = $LegendPalettes[$Index % $LegendPalettes.Count]
-        return "$(Get-GradientText $Text $name $Offset)$($Reset)"
+        return "$(Get-GradientText $Text $name $Seed)$($Reset)"
     }
     if ($Tier -eq 'unique' -and -not [string]::IsNullOrEmpty($Reset)) {
         return "$(Get-StaticGradientText $Text)$($Reset)"
