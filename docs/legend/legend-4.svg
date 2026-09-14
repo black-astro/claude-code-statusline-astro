@@ -2,8 +2,8 @@
 <rect width="100%" height="100%" rx="6" fill="#0d1117"/>
 <g font-family="'Segoe UI Symbol','Malgun Gothic','Noto Sans CJK KR','Apple SD Gothic Neo','Noto Sans Symbols 2','DejaVu Sans',monospace" font-size="22" dominant-baseline="middle">
 <text x="10.0" y="22.0" fill="#0a6e82">♪</text>
-<text x="23.6" y="22.0" fill="#0b768b">ﾟ</text>
-<text x="37.2" y="22.0" fill="#0d7e95">･</text>
+<text x="23.6" y="22.0" fill="#0b768b">°</text>
+<text x="37.2" y="22.0" fill="#0d7e95">·</text>
 <text x="50.8" y="22.0" fill="#0e879e">（</text>
 <text x="72.8" y="22.0" fill="#108fa8">๑</text>
 <text x="86.4" y="22.0" fill="#1197b1">ᴖ</text>
@@ -11,7 +11,7 @@
 <text x="113.6" y="22.0" fill="#14a7c4">ᴖ</text>
 <text x="127.2" y="22.0" fill="#19afcc">๑</text>
 <text x="140.8" y="22.0" fill="#1fb7d4">）</text>
-<text x="162.9" y="22.0" fill="#25bedc">･</text>
-<text x="176.5" y="22.0" fill="#2bc6e4">ﾟ</text>
+<text x="162.9" y="22.0" fill="#25bedc">·</text>
+<text x="176.5" y="22.0" fill="#2bc6e4">°</text>
 <text x="190.1" y="22.0" fill="#31ceec">♪</text>
 </g></svg>

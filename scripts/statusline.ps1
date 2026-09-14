@@ -21,7 +21,7 @@ param(
     [string]$Face = ''
 )
 
-$StatuslineVersion = '1.4.7'
+$StatuslineVersion = '1.4.8'
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -61,7 +61,7 @@ $AnimSecs = 2
 # Legend sparkle: the face wears the darker half of its palette, and on every
 # redraw one character in SparkleEvery flashes the palette's lightest colour,
 # picked by the clock so the twinkle wanders. 1 lights everything, 0 turns
-# the twinkle off. The spoken line stays in one steady light colour.
+# the twinkle off. The spoken line gets the same treatment on its own.
 $SparkleEvery = 4
 # 24-bit colour for the legend ramp. Set $false on a terminal that only knows
 # 256 colours; the ramp then snaps to the nearest of those.
@@ -270,9 +270,9 @@ function Get-LeafName {
 $KaoError = '（；へ；）#（；ㅅ；）'
 $KaoCommon = '（・ω・）#（－ω－）|（´･ω･）#（´-ω-）|（ ˘ω˘ ）z#（ ˘ω˘ ）Z|（=・ω・=）#（=－ω－=）|（・∀・）#（－∀－）|（・◡・）#（－◡－）|（￢_￢）#（￢‿￢）|（＝_＝）#（＝.＝）|（・_・）#（－_－）|（≖‿≖）#（≖_≖）|（◣_◢）#（◢_◣）|（ー_ー）#（ー.ー）'
 $KaoUncommon = '（๑˃ᴗ˂）#（๑˂ᴗ˃）|（｡･ω･｡）#（｡-ω-｡）|（^▽^）#（^∇^）|（◕‿◕）#（◠‿◠）|（≧ω≦）#（≧▽≦）|（･ω<）#（-ω<）|（ㆆ_ㆆ）#（ㆆ.ㆆ）|（◔_◔）#（◔‸◔）|（◓_◓）#（◒_◒）|（・ㅂ・）#（－ㅂ－）|（¬‿¬）#（¬_¬）|（◑_◑）#（◐_◐）'
-$KaoRare = '（๑˃ᴗ˂）✧#（๑˂ᴗ˃）✦|ヽ（•‿•）ノ#ヾ（•‿•）ノ|（◕‿◕）✧#（◠‿◠）✦|\（^o^）/#\（^O^）/|（๑✧‿✧๑）#（๑✦‿✦๑）|ヽ（^ω^）ノ#ヾ（^ω^）ノ|（￣ｰ￣）✧#（￣ｰ￣）✦|（▼ω▼）✧#（▼ω▼）✦|（◣ω◢）✧#（◢ω◣）✦|（￢‿￢）✧#（￢‿￢）✦|（★ω★）#（☆ω☆）|（☞ﾟヮﾟ）☞#（☜ﾟヮﾟ）☜'
-$KaoUnique = '✧ヽ（☆▽☆）ノ✧#✦ヾ（★▽★）ノ✦|✧（ﾉ◕ヮ◕）ﾉ✧#✦（ﾉ◠ヮ◠）ﾉ✦|✧（๑♡‿♡๑）✧#✦（๑♥‿♥๑）✦|✧ヽ（✧∇✧）ノ✧#✦ヾ（✦▽✦）ノ✦|✧＼（◕ᴗ◕）／✧#✦＼（◠ᴗ◠）／✦|✧ヽ（￣ヘ￣）ノ✧#✦ヾ（￣ヘ￣）ノ✦|✧ヽ（╬◣_◢）ノ✧#✦ヽ（╬◢_◣）ノ✦|✧ヽ（￢_￢）ノ✧#✦ヾ（￢‿￢）ノ✦|✧ヽ（╬￣ヘ￣）ノ✧#✦ヾ（╬￣ヘ￣）ノ✦|✧┗（⇀‸↼）┛✧#✦┗（⇀‸↼）┛✦'
-$KaoLegend = '･ﾟ✧（◕ᴗ◕）✧ﾟ･#･ﾟ✦（◕ᴗ◕）✦ﾟ･#･ﾟ✧（◕ᴗ◕）✦ﾟ･#･ﾟ✦（◕ᴗ◕）✧ﾟ･|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ノ♥#♡ヾ（♥‿♥）ノ♡#♥ヽ（♡‿♡）ノ♥|✧ﾟ（ﾉ≧∇≦）ﾉﾟ✧#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✦#✧ﾟ（ﾉ≧∇≦）ﾉﾟ✦#✦ﾟ（ﾉ≧▽≦）ﾉﾟ✧|♪ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♪#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬#♩ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♩#♬ﾟ･（๑ᴖ◡ᴖ๑）･ﾟ♬|･ﾟ✧（￣ヘ￣）✧ﾟ･#･ﾟ✦（￣ヘ￣）✦ﾟ･#･ﾟ✧（￣ヘ￣）✦ﾟ･#･ﾟ✦（￣ヘ￣）✧ﾟ･|✦ﾟ（╬◣_◢）ﾟ✦#✧ﾟ（╬◢_◣）ﾟ✧#✦ﾟ（╬◢_◣）ﾟ✦#✧ﾟ（╬◣_◢）ﾟ✧|≪✧（╬▼_▼）✧≫#≪✦（╬▼_▼）✦≫#≪✧（╬▼_▼）✦≫#≪✦（╬▼_▼）✧≫'
+$KaoRare = '（๑˃ᴗ˂）◇#（๑˂ᴗ˃）◆|ヽ（•‿•）ノ#ヾ（•‿•）ノ|（◕‿◕）◇#（◠‿◠）◆|\（^o^）/#\（^O^）/|（๑◇‿◇๑）#（๑◆‿◆๑）|ヽ（^ω^）ノ#ヾ（^ω^）ノ|（￣ｰ￣）◇#（￣ｰ￣）◆|（▼ω▼）◇#（▼ω▼）◆|（◣ω◢）◇#（◢ω◣）◆|（￢‿￢）◇#（￢‿￢）◆|（★ω★）#（☆ω☆）|（☞°ヮ°）☞#（☜°ヮ°）☜'
+$KaoUnique = '◇ヽ（☆▽☆）ノ◇#◆ヾ（★▽★）ノ◆|◇（ﾉ◕ヮ◕）ﾉ◇#◆（ﾉ◠ヮ◠）ﾉ◆|◇（๑♡‿♡๑）◇#◆（๑♥‿♥๑）◆|◇ヽ（◇∇◇）ノ◇#◆ヾ（◆▽◆）ノ◆|◇＼（◕ᴗ◕）／◇#◆＼（◠ᴗ◠）／◆|◇ヽ（￣ヘ￣）ノ◇#◆ヾ（￣ヘ￣）ノ◆|◇ヽ（╬◣_◢）ノ◇#◆ヽ（╬◢_◣）ノ◆|◇ヽ（￢_￢）ノ◇#◆ヾ（￢‿￢）ノ◆|◇ヽ（╬￣ヘ￣）ノ◇#◆ヾ（╬￣ヘ￣）ノ◆|◇┗（⇀‸↼）┛◇#◆┗（⇀‸↼）┛◆'
+$KaoLegend = '·°◇（◕ᴗ◕）◇°·#·°◆（◕ᴗ◕）◆°·#·°◇（◕ᴗ◕）◆°·#·°◆（◕ᴗ◕）◇°·|♡ヽ（♥‿♥）ノ♡#♥ヾ（♡‿♡）ノ♥#♡ヾ（♥‿♥）ノ♡#♥ヽ（♡‿♡）ノ♥|◇°（ﾉ≧∇≦）ﾉ°◇#◆°（ﾉ≧▽≦）ﾉ°◆#◇°（ﾉ≧∇≦）ﾉ°◆#◆°（ﾉ≧▽≦）ﾉ°◇|♪°·（๑ᴖ◡ᴖ๑）·°♪#♬°·（๑ᴖ◡ᴖ๑）·°♬#♩°·（๑ᴖ◡ᴖ๑）·°♩#♬°·（๑ᴖ◡ᴖ๑）·°♬|·°◇（￣ヘ￣）◇°·#·°◆（￣ヘ￣）◆°·#·°◇（￣ヘ￣）◆°·#·°◆（￣ヘ￣）◇°·|◆°（╬◣_◢）°◆#◇°（╬◢_◣）°◇#◆°（╬◢_◣）°◆#◇°（╬◣_◢）°◇|≪◇（╬▼_▼）◇≫#≪◆（╬▼_▼）◆≫#≪◇（╬▼_▼）◆≫#≪◆（╬▼_▼）◇≫'
 $KaoDev = '｛・ω・｝#｛－ω－｝|⟨◕ᴗ◕⟩#⟨◠ᴗ◠⟩|［◉_◉］#［◉‸◉］|⟨◣_◢⟩#⟨◢_◣⟩'
 
 $NameCommon = 'Kitten|Droopy|Snooze|Whiskers|Grin|Smiley|Side-eye|Meh|Blank|Smirk|Scowl|Deadpan'
@@ -599,7 +599,8 @@ function Get-GradientText {
     $lo = [int][Math]::Floor($n / 8)
     $hi = [int][Math]::Floor($n * 3 / 8)
     $peak = [int][Math]::Floor($n / 2)
-    if ($Seed -lt 0) { $Seed = 0; if ($Now -gt 0) { $Seed = $Now % 1000003 } }
+    if ($Seed -eq -2) { $Seed = 1; if ($Now -gt 0) { $Seed = ($Now % 1000003) + 1 } }
+    elseif ($Seed -lt 0) { $Seed = 0; if ($Now -gt 0) { $Seed = $Now % 1000003 } }
 
     $sb = [System.Text.StringBuilder]::new()
     for ($i = 0; $i -lt $len; $i++) {
@@ -617,14 +618,6 @@ function Get-GradientText {
         [void]$sb.Append($Esc).Append('[').Append($code).Append('m').Append($Text[$i])
     }
     return $sb.ToString()
-}
-
-# The steady colour for a legend's spoken line: the light end of the face's
-# own range, so it reads clearly without joining the twinkle.
-function Get-LegendTalkColor {
-    param([string]$PaletteName)
-    $ramp = Get-Ramp $PaletteName
-    return "$($Esc)[$($ramp[[int][Math]::Floor($ramp.Count * 3 / 8)])m"
 }
 
 # Unique wears one fixed gradient, lavender to deep purple, stretched across
@@ -654,12 +647,18 @@ function Write-TierText {
     if ($Tier -eq 'legend') {
         $name = $LegendPalettes[$Index % $LegendPalettes.Count]
         $out = "$(Get-GradientText $Text $name $Seed)$($Reset)"
-        if ($Talk -ne '') { $out += " $(Get-LegendTalkColor $name)$($Talk)$($Reset)" }
+        # The line wears its own gradient, seeded one step apart so its
+        # twinkle does not mirror the face's.
+        if ($Talk -ne '') {
+            $talkSeed = -2
+            if ($Seed -ge 0) { $talkSeed = $Seed + 1 }
+            $out += " $(Get-GradientText $Talk $name $talkSeed)$($Reset)"
+        }
         return $out
     }
     if ($Tier -eq 'unique' -and -not [string]::IsNullOrEmpty($Reset)) {
         $out = "$(Get-StaticGradientText $Text)$($Reset)"
-        if ($Talk -ne '') { $out += " $($CUnique)$($Talk)$($Reset)" }
+        if ($Talk -ne '') { $out += " $(Get-StaticGradientText $Talk)$($Reset)" }
         return $out
     }
     if ($Talk -ne '') { $Text += " $($Talk)" }
