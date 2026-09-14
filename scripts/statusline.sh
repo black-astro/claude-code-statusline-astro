@@ -20,7 +20,7 @@ BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
-STATUSLINE_VERSION='1.4.1'
+STATUSLINE_VERSION='1.4.3'
 
 # Run with no arguments (the way Claude Code calls it) to print the status line.
 #   --roll      roll today's mascot (once a day) and exit
@@ -41,12 +41,17 @@ case "${1:-}" in
         printf '  statusline.sh --version  버전 보기\n'
         printf '  statusline.sh --help     이 도움말\n\n'
         printf '뽑기는 하루 한 번이고, 뽑기 전까지 지금 마스코트가 그대로 유지됩니다.\n'
-        printf '\n  statusline.sh --roll legend   등급 지정 (메인테이너 키 전용)\n'
+        printf '
+  statusline.sh --roll legend         등급 지정 (메인테이너 키 전용)
+'
+        printf '  statusline.sh --roll legend Wrath   얼굴 지정 (메인테이너 키 전용)
+'
         exit 0
         ;;
     --roll)
         SUBCOMMAND=roll
         ROLL_WANT="${2:-}"
+        ROLL_FACE="${3:-}"
         ;;
     --today)
         SUBCOMMAND=today
@@ -635,7 +640,8 @@ can_roll() {
 
 # Rolls once and stores the signed result. The randomness is cryptographic, so
 # the outcome is not predictable from the date or from previous rolls.
-# $1 = 원하는 등급(선택). 0 성공 / 1 실패 / 2 권한 없음 / 3 없는 등급.
+# $1 = 원하는 등급(선택), $2 = 원하는 얼굴 이름이나 번호(선택).
+# 0 성공 / 1 실패 / 2 권한 없음 / 3 없는 등급 / 4 없는 얼굴.
 do_roll() {
     _key=$(gacha_key)
     [ -n "$_key" ] || return 1
@@ -690,6 +696,23 @@ do_roll() {
     _kn=$(kao_count "$(gacha_pool "$ROLL_TIER")")
     [ "$_kn" -gt 0 ] || return 1
     ROLL_INDEX=$(( _n2 % _kn ))
+
+    # A named face (or its 1-based number) goes with a chosen tier, so the
+    # maintainer can wear each one in turn while working on them.
+    _wantf="${2:-}"
+    if [ -n "$_want" ] && [ -n "$_wantf" ]; then
+        _pick=''
+        case "$_wantf" in
+            ''|*[!0-9]*)
+                _pick=$(printf %s "$(name_pool "$ROLL_TIER")" | awk -F'|' -v w="$_wantf" '{ for (i = 1; i <= NF; i++) if ($i == w) { print i - 1; exit } }')
+                ;;
+            *)
+                [ "$_wantf" -ge 1 ] && [ "$_wantf" -le "$_kn" ] && _pick=$(( _wantf - 1 ))
+                ;;
+        esac
+        [ -n "$_pick" ] || return 4
+        ROLL_INDEX=$_pick
+    fi
 
     ROLL_DATE=$(date +%Y%m%d 2>/dev/null)
     ROLL_EPOCH=$now
@@ -890,7 +913,7 @@ show_draw() {
 if [ "$SUBCOMMAND" = roll ]; then
     # 등급을 직접 고르는 건 메인테이너 키에서만 됩니다.
     if [ -n "$ROLL_WANT" ]; then
-        do_roll "$ROLL_WANT"
+        do_roll "$ROLL_WANT" "$ROLL_FACE"
         case $? in
             0)
                 printf '%s 등급으로 지정했습니다.\n\n' "$ROLL_WANT"
@@ -905,6 +928,13 @@ if [ "$SUBCOMMAND" = roll ]; then
             3)
                 printf '그런 등급이 없습니다: %s\n' "$ROLL_WANT"
                 printf '고를 수 있는 값: common uncommon rare unique legend dev\n'
+                exit 1
+                ;;
+            4)
+                printf '그런 얼굴이 없습니다: %s
+' "$ROLL_FACE"
+                printf '고를 수 있는 값: %s
+' "$(name_pool "$ROLL_WANT" | tr '|' ' ')"
                 exit 1
                 ;;
             *)
