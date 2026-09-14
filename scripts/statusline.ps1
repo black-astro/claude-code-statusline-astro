@@ -21,7 +21,7 @@ param(
     [string]$Face = ''
 )
 
-$StatuslineVersion = '1.4.6'
+$StatuslineVersion = '1.4.7'
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -58,9 +58,10 @@ $ShowMascotTalk = $true
 # Seconds per expression frame while a turn runs. Claude Code only redraws
 # every refreshInterval (the installer sets 2), so keep the two equal.
 $AnimSecs = 2
-# Legend sparkle: the palette lies still across the face, and on every redraw
-# one character in SparkleEvery flips to the opposite colour, picked by the clock
-# so the twinkle wanders. 1 lights everything, 0 turns the twinkle off.
+# Legend sparkle: the face wears the darker half of its palette, and on every
+# redraw one character in SparkleEvery flashes the palette's lightest colour,
+# picked by the clock so the twinkle wanders. 1 lights everything, 0 turns
+# the twinkle off. The spoken line stays in one steady light colour.
 $SparkleEvery = 4
 # 24-bit colour for the legend ramp. Set $false on a terminal that only knows
 # 256 colours; the ramp then snaps to the nearest of those.
@@ -583,12 +584,11 @@ function Get-Ramp {
     return $ramp
 }
 
-# Paints the text with the palette stretched across it, dark to light to dark,
-# and makes a few characters twinkle by jumping to the opposite cell of the
-# ramp: a dark character flashes light, a light one flashes dark, so every
-# position visibly changes. Which ones is decided by a small integer hash of
-# the clock and the position, so both implementations agree exactly; Seed -1
-# means "now", any other seed gives a fixed picture.
+# Paints the face with the darker half of the palette, dark at the edges and
+# mid-light in the middle, and makes a few characters flash the palette's
+# lightest colour. Which ones is decided by a small integer hash of the clock
+# and the position, so both implementations agree exactly; Seed -1 means
+# "now", any other seed gives a fixed picture.
 function Get-GradientText {
     param([string]$Text, [string]$PaletteName, [long]$Seed = -1)
 
@@ -596,22 +596,35 @@ function Get-GradientText {
     $ramp = Get-Ramp $PaletteName
     $n = $ramp.Count
     $len = $Text.Length
+    $lo = [int][Math]::Floor($n / 8)
+    $hi = [int][Math]::Floor($n * 3 / 8)
+    $peak = [int][Math]::Floor($n / 2)
     if ($Seed -lt 0) { $Seed = 0; if ($Now -gt 0) { $Seed = $Now % 1000003 } }
 
     $sb = [System.Text.StringBuilder]::new()
     for ($i = 0; $i -lt $len; $i++) {
-        $idx = 0
-        if ($len -gt 1) { $idx = [int][Math]::Floor($i * ($n - 1) / ($len - 1)) }
+        # 0 at both edges, 1 in the middle, then stretched over lo..hi
+        $d = [Math]::Abs(2 * $i - ($len - 1))
+        $idx = $hi
+        if ($len -gt 1) { $idx = $hi - [int][Math]::Floor(($hi - $lo) * $d / ($len - 1)) }
         $code = $ramp[$idx]
         if ($SparkleEvery -gt 0) {
             $x = ($Seed * 31 + $i * 7 + 13) % 2147483647
             $x = ($x * 48271) % 2147483647
             $x = ($x * 48271) % 2147483647
-            if (($x % $SparkleEvery) -eq 0) { $code = $ramp[($idx + [int][Math]::Floor($n / 2)) % $n] }
+            if (($x % $SparkleEvery) -eq 0) { $code = $ramp[$peak] }
         }
         [void]$sb.Append($Esc).Append('[').Append($code).Append('m').Append($Text[$i])
     }
     return $sb.ToString()
+}
+
+# The steady colour for a legend's spoken line: the light end of the face's
+# own range, so it reads clearly without joining the twinkle.
+function Get-LegendTalkColor {
+    param([string]$PaletteName)
+    $ramp = Get-Ramp $PaletteName
+    return "$($Esc)[$($ramp[[int][Math]::Floor($ramp.Count * 3 / 8)])m"
 }
 
 # Unique wears one fixed gradient, lavender to deep purple, stretched across
@@ -632,18 +645,24 @@ function Get-StaticGradientText {
     return $sb.ToString()
 }
 
-# Wraps text in the right paint for its tier: the flowing gradient is reserved
-# for legend, the fixed one for unique; every other tier takes one flat color.
+# Wraps a face (and an optional spoken line) in the right paint for its tier:
+# the twinkling gradient is reserved for legend, the fixed one for unique;
+# every other tier takes one flat color. The line never twinkles.
 function Write-TierText {
-    param([string]$Tier, [string]$Text, [int]$Index = 0, [long]$Seed = -1)
+    param([string]$Tier, [string]$Text, [int]$Index = 0, [long]$Seed = -1, [string]$Talk = '')
 
     if ($Tier -eq 'legend') {
         $name = $LegendPalettes[$Index % $LegendPalettes.Count]
-        return "$(Get-GradientText $Text $name $Seed)$($Reset)"
+        $out = "$(Get-GradientText $Text $name $Seed)$($Reset)"
+        if ($Talk -ne '') { $out += " $(Get-LegendTalkColor $name)$($Talk)$($Reset)" }
+        return $out
     }
     if ($Tier -eq 'unique' -and -not [string]::IsNullOrEmpty($Reset)) {
-        return "$(Get-StaticGradientText $Text)$($Reset)"
+        $out = "$(Get-StaticGradientText $Text)$($Reset)"
+        if ($Talk -ne '') { $out += " $($CUnique)$($Talk)$($Reset)" }
+        return $out
     }
+    if ($Talk -ne '') { $Text += " $($Talk)" }
     return "$(Get-TierColor $Tier)$($Text)$($Reset)"
 }
 
@@ -716,9 +735,7 @@ function Get-Mascot {
             $talk = Get-Talk $TalkDone[$draw.Tier] $stamp
         }
     }
-    if ($talk -ne '') { $text += " $($talk)" }
-
-    return (Write-TierText $draw.Tier $text $draw.Index)
+    return (Write-TierText $draw.Tier $text $draw.Index -1 $talk)
 }
 # ---- subcommands -----------------------------------------------------------
 # None of these read stdin, so they work from a plain prompt.

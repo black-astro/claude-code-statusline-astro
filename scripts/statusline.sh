@@ -20,7 +20,7 @@ BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
-STATUSLINE_VERSION='1.4.6'
+STATUSLINE_VERSION='1.4.7'
 
 # Run with no arguments (the way Claude Code calls it) to print the status line.
 #   --roll      roll today's mascot (once a day) and exit
@@ -69,9 +69,10 @@ SHOW_MASCOT_TALK=1
 # Seconds per expression frame while a turn runs. Claude Code only redraws
 # every refreshInterval (the installer sets 2), so keep the two equal.
 ANIM_SECS=2
-# Legend sparkle: the palette lies still across the face, and on every redraw
-# one character in SPARKLE_EVERY flips to the opposite colour, picked by the clock
-# so the twinkle wanders. 1 lights everything, 0 turns the twinkle off.
+# Legend sparkle: the face wears the darker half of its palette, and on every
+# redraw one character in SPARKLE_EVERY flashes the palette's lightest colour,
+# picked by the clock so the twinkle wanders. 1 lights everything, 0 turns
+# the twinkle off. The spoken line stays in one steady light colour.
 SPARKLE_EVERY=4
 # 24-bit colour for the legend ramp. Set 0 on a terminal that only knows 256
 # colours; the ramp then snaps to the nearest of those.
@@ -747,30 +748,36 @@ awk_counts_chars() {
     [ "$(printf %s "¬‿" | awk '{print length($0)}' 2>/dev/null)" = 2 ]
 }
 
-# Paints the text with the palette ($3, one SGR parameter per cell) stretched
-# across it, dark to light to dark, and makes a few characters twinkle by
-# jumping to the opposite cell of the ramp: a dark character flashes light, a
-# light one flashes dark, so every position visibly changes. Which ones is
-# decided by a small integer hash of the seed ($2) and the position, so both
+# Paints the face with the darker half of the palette ($3, one SGR parameter
+# per cell), dark at the edges and mid-light in the middle, and makes a few
+# characters flash the palette's lightest colour. Which ones is decided by a
+# small integer hash of the seed ($2) and the position, so both
 # implementations agree exactly.
 grad_text() {
     printf %s "$1" | awk -v seed="$2" -v esc="$ESC" -v rb="$3" -v every="$SPARKLE_EVERY" '
-        BEGIN { n = split(rb, C, " ") }
+        BEGIN { n = split(rb, C, " "); lo = int(n / 8); hi = int(n * 3 / 8); peak = int(n / 2) }
         {
             L = length($0)
             for (i = 1; i <= L; i++) {
-                idx = 0
-                if (L > 1) idx = int((i - 1) * (n - 1) / (L - 1))
+                d = 2 * (i - 1) - (L - 1); if (d < 0) d = -d
+                idx = hi
+                if (L > 1) idx = hi - int((hi - lo) * d / (L - 1))
                 code = C[idx + 1]
                 if (every > 0) {
                     x = (seed * 31 + (i - 1) * 7 + 13) % 2147483647
                     x = (x * 48271) % 2147483647
                     x = (x * 48271) % 2147483647
-                    if (x % every == 0) code = C[((idx + int(n / 2)) % n) + 1]
+                    if (x % every == 0) code = C[peak + 1]
                 }
                 printf "%s[%sm%s", esc, code, substr($0, i, 1)
             }
         }'
+}
+
+# The steady colour for a legend's spoken line: the light end of the face's
+# own range ($1 = the ramp).
+legend_talk_color() {
+    printf %s "$1" | awk -v esc="$ESC" '{ n = split($0, C, " "); printf "%s[%sm", esc, C[int(n * 3 / 8) + 1] }'
 }
 
 # Unique wears one fixed gradient, lavender to deep purple, stretched across
@@ -860,21 +867,23 @@ mascot() {
             fi
             ;;
     esac
-    [ -n "$_line" ] && _line=" $_line"
-
-    _text="$(kao_frame "$_face" "$_fr")${_line}"
-    # Legend shimmers: every character takes its own hue and the ramp drifts.
+    _text=$(kao_frame "$_face" "$_fr")
+    # Legend twinkles; the spoken line stays in one steady colour beside it.
     if [ "$ROLL_TIER" = legend ] && [ -n "$RESET" ] && awk_counts_chars; then
         _pn=$(printf %s "$LEGEND_PALETTES" | cut -d" " -f"$(( ROLL_INDEX + 1 ))")
+        _ramp=$(legend_ramp "$_pn")
         _seed=0
         [ "$now" -gt 0 ] && _seed=$(( now % 1000003 ))
-        printf '%s' "$(grad_text "$_text" "$_seed" "$(legend_ramp "$_pn")")${RESET}"
+        printf '%s' "$(grad_text "$_text" "$_seed" "$_ramp")${RESET}"
+        [ -n "$_line" ] && printf ' %s%s%s' "$(legend_talk_color "$_ramp")" "$_line" "$RESET"
         return 0
     fi
     if [ "$ROLL_TIER" = unique ] && [ -n "$RESET" ] && awk_counts_chars; then
         printf '%s' "$(static_grad_text "$_text" "$(legend_ramp unique)")${RESET}"
+        [ -n "$_line" ] && printf ' %s%s%s' "$C_UNIQUE" "$_line" "$RESET"
         return 0
     fi
+    [ -n "$_line" ] && _text="${_text} ${_line}"
     printf '%s' "$(tier_color "$ROLL_TIER")${_text}${RESET}"
 }
 # ---- subcommands -----------------------------------------------------------
