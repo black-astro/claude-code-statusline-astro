@@ -81,24 +81,27 @@ FACES = {
 # legend index -> palette name, mood-matched
 LEGEND_PALETTES = ['dawn', 'crimson', 'royal', 'abyss', 'amethyst', 'ember', 'radiance']
 LEGEND_DESC = {
-    'dawn':     '보라에서 금빛으로',
+    'dawn':     '금빛에서 크림색으로',
     'crimson':  '자주에서 분홍으로',
-    'royal':    '호박빛에서 순금으로',
-    'abyss':    '남색에서 청록으로',
-    'amethyst': '진보라에서 자홍으로',
-    'ember':    '진홍에서 금빛으로',
+    'royal':    '주홍에서 살구색으로',
+    'abyss':    '청록에서 얼음빛으로',
+    'amethyst': '연초록에서 남색으로',
+    'ember':    '검붉은색에서 붉은색으로',
     'radiance': '연보라에서 흰빛과 은색으로',
 }
 # RGB keyframes of each legend ramp. The scripts interpolate them into
 # GRADIENT_STEPS cells around a closed loop, so the band flows back into
 # itself without a seam.
+# One hue family per legend so no two read alike:
+#   dawn gold, crimson pink, royal tangerine, abyss cyan-ice, amethyst
+#   green-to-navy, ember blood red, radiance lavender-silver.
 PALETTES = {
-    'dawn':     ['3b1a80', '8a2fbf', 'e04a9a', 'ff8a5c', 'ffc94d', 'fff0a0'],
+    'dawn':     ['7a4a00', 'd99a00', 'ffcc33', 'ffe9a3', 'fff8e1'],
     'crimson':  ['4a0826', 'a50f3c', 'ff2d6f', 'ff7fb0', 'ffc4dc'],
-    'royal':    ['7a3d05', 'd17a10', 'ffbf2e', 'ffe27a', 'fff8c8'],
-    'abyss':    ['0a1250', '1a3bbf', '2a8cff', '4fe6ff', 'b0fff5'],
-    'amethyst': ['2a0866', '6a24d0', 'a44dff', 'dc8cff', 'f6ccff'],
-    'ember':    ['4a0505', 'b80f0f', 'ff4a10', 'ffa030', 'ffe066'],
+    'royal':    ['8a2a00', 'e85d04', 'ff9a2e', 'ffc98a', 'ffe6c7'],
+    'abyss':    ['00485a', '00a3c4', '3fe0ff', 'a8f4ff', 'e6fdff'],
+    'amethyst': ['b8ffb0', '4fd66a', '1a9a7a', '1f5fa8', '0f2a6e'],
+    'ember':    ['3a0000', '8a0000', 'e00000', 'ff3b3b', 'ff8a7a'],
     'radiance': ['8a78e0', 'bfb2f5', 'ece6ff', 'ffffff', 'd0d5e0', 'a9afc0'],
 }
 GRADIENT_STEPS = 36

@@ -176,12 +176,12 @@ DIR my-project | GIT main | MODEL Opus 5 | CTX [◼◼◻◻◻◻◻◻◻◻] 
 
 | 이름 | 얼굴 | 색 |
 | --- | --- | --- |
-| **Halo** | ![Halo](docs/legend/legend-1.svg) | 보라에서 금빛으로 |
+| **Halo** | ![Halo](docs/legend/legend-1.svg) | 금빛에서 크림색으로 |
 | **Heartthrob** | ![Heartthrob](docs/legend/legend-2.svg) | 자주에서 분홍으로 |
-| **Bliss** | ![Bliss](docs/legend/legend-3.svg) | 호박빛에서 순금으로 |
-| **Serenade** | ![Serenade](docs/legend/legend-4.svg) | 남색에서 청록으로 |
-| **Monarch** | ![Monarch](docs/legend/legend-5.svg) | 진보라에서 자홍으로 |
-| **Wrath** | ![Wrath](docs/legend/legend-6.svg) | 진홍에서 금빛으로 |
+| **Bliss** | ![Bliss](docs/legend/legend-3.svg) | 주홍에서 살구색으로 |
+| **Serenade** | ![Serenade](docs/legend/legend-4.svg) | 청록에서 얼음빛으로 |
+| **Monarch** | ![Monarch](docs/legend/legend-5.svg) | 연초록에서 남색으로 |
+| **Wrath** | ![Wrath](docs/legend/legend-6.svg) | 검붉은색에서 붉은색으로 |
 | **Overlord** | ![Overlord](docs/legend/legend-7.svg) | 연보라에서 흰빛과 은색으로 |
 
 | 이름 | 표정 |
