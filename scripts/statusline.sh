@@ -20,7 +20,7 @@ BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
-STATUSLINE_VERSION='1.3.1'
+STATUSLINE_VERSION='1.4.0'
 
 # Run with no arguments (the way Claude Code calls it) to print the status line.
 #   --roll      roll today's mascot (once a day) and exit
@@ -64,11 +64,10 @@ SHOW_MASCOT_TALK=1
 # Seconds per expression frame while a turn runs. Claude Code only redraws
 # every refreshInterval (the installer sets 2), so keep the two equal.
 ANIM_SECS=2
-# Legend gradient: how many cells the colour band travels per second. A ramp
-# is 36 cells long, so at 3 it comes full circle every 12 seconds.
-# The band moves on every redraw regardless of refreshInterval; a shorter
-# interval only makes the motion finer, never faster.
-GRADIENT_SPEED=3
+# Legend sparkle: the palette lies still across the face, and on every redraw
+# one character in SPARKLE_EVERY lights up towards white, picked by the clock
+# so the twinkle wanders. 1 lights everything, 0 turns the twinkle off.
+SPARKLE_EVERY=4
 # 24-bit colour for the legend ramp. Set 0 on a terminal that only knows 256
 # colours; the ramp then snaps to the nearest of those.
 LEGEND_TRUE_COLOR=1
@@ -725,14 +724,37 @@ awk_counts_chars() {
     [ "$(printf %s "¬‿" | awk '{print length($0)}' 2>/dev/null)" = 2 ]
 }
 
-# Paints every character its own colour along the ramp ($3, one SGR parameter
-# per cell) and slides the band by $2 cells, so the colour flows across the text.
+# Paints the text with the palette ($3, one SGR parameter per cell) stretched
+# across it, dark to light to dark, and makes a few characters twinkle. Which
+# ones is decided by a small integer hash of the seed ($2) and the position, so
+# both implementations agree exactly. A 24-bit code is lifted 3/5 of the way
+# to white; a 256-colour code just becomes white.
 grad_text() {
-    printf %s "$1" | awk -v off="$2" -v esc="$ESC" -v rb="$3" '
+    printf %s "$1" | awk -v seed="$2" -v esc="$ESC" -v rb="$3" -v every="$SPARKLE_EVERY" '
         BEGIN { n = split(rb, C, " ") }
         {
-            for (i = 1; i <= length($0); i++) {
-                printf "%s[%sm%s", esc, C[((off + i - 1) % n) + 1], substr($0, i, 1)
+            L = length($0)
+            for (i = 1; i <= L; i++) {
+                idx = 0
+                if (L > 1) idx = int((i - 1) * (n - 1) / (L - 1))
+                code = C[idx + 1]
+                if (every > 0) {
+                    x = (seed * 31 + (i - 1) * 7 + 13) % 2147483647
+                    x = (x * 48271) % 2147483647
+                    x = (x * 48271) % 2147483647
+                    if (x % every == 0) {
+                        if (substr(code, 1, 5) == "38;2;") {
+                            split(code, P, ";")
+                            r = P[3] + int((255 - P[3]) * 3 / 5)
+                            g = P[4] + int((255 - P[4]) * 3 / 5)
+                            b = P[5] + int((255 - P[5]) * 3 / 5)
+                            code = sprintf("38;2;%d;%d;%d", r, g, b)
+                        } else {
+                            code = "38;5;231"
+                        }
+                    }
+                }
+                printf "%s[%sm%s", esc, code, substr($0, i, 1)
             }
         }'
 }
@@ -830,10 +852,9 @@ mascot() {
     # Legend shimmers: every character takes its own hue and the ramp drifts.
     if [ "$ROLL_TIER" = legend ] && [ -n "$RESET" ] && awk_counts_chars; then
         _pn=$(printf %s "$LEGEND_PALETTES" | cut -d" " -f"$(( ROLL_INDEX + 1 ))")
-        _ramp=$(legend_ramp "$_pn")
-        _off=0
-        [ "$now" -gt 0 ] && _off=$(printf %s "$_ramp" | awk -v t="$now" -v s="$GRADIENT_SPEED" '{ n = split($0, C, " "); printf "%d", int(t * s) % n }')
-        printf '%s' "$(grad_text "$_text" "$_off" "$_ramp")${RESET}"
+        _seed=0
+        [ "$now" -gt 0 ] && _seed=$(( now % 1000003 ))
+        printf '%s' "$(grad_text "$_text" "$_seed" "$(legend_ramp "$_pn")")${RESET}"
         return 0
     fi
     if [ "$ROLL_TIER" = unique ] && [ -n "$RESET" ] && awk_counts_chars; then
