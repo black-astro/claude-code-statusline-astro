@@ -316,7 +316,7 @@ def swatch_svg(hexes):
     n = len(hexes)
     w = pad * 2 + cell * 10 + gap * 9
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img">' % (w, cell + pad * 2, w, cell + pad * 2),
-             '<rect width="100%%" height="100%%" rx="6" fill="#0d1117"/>']
+             '<rect width="100%" height="100%" rx="6" fill="#0d1117"/>']
     for i in range(10):
         col = hexes[int(round(i * (n - 1) / 9))]
         parts.append('<rect x="%d" y="%d" width="%d" height="%d" rx="4" fill="%s"/>' % (pad + i * (cell + gap), pad, cell, cell, col))
