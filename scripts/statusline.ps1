@@ -19,7 +19,7 @@ param(
     [string]$Tier = ''
 )
 
-$StatuslineVersion = '1.4.0'
+$StatuslineVersion = '1.4.1'
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -57,7 +57,7 @@ $ShowMascotTalk = $true
 # every refreshInterval (the installer sets 2), so keep the two equal.
 $AnimSecs = 2
 # Legend sparkle: the palette lies still across the face, and on every redraw
-# one character in SparkleEvery lights up towards white, picked by the clock
+# one character in SparkleEvery flips to the opposite colour, picked by the clock
 # so the twinkle wanders. 1 lights everything, 0 turns the twinkle off.
 $SparkleEvery = 4
 # 24-bit colour for the legend ramp. Set $false on a terminal that only knows
@@ -564,25 +564,12 @@ function Get-Ramp {
     return $ramp
 }
 
-# One colour lifted towards white, for the sparkle. 24-bit codes are blended
-# 3/5 of the way; a 256-colour code just becomes white.
-function Get-Sparkle {
-    param([string]$Code)
-    if ($Code.StartsWith('38;2;')) {
-        $p = $Code.Split(';')
-        $r = [int]$p[2]; $g = [int]$p[3]; $b = [int]$p[4]
-        $r = $r + [int][Math]::Floor((255 - $r) * 3 / 5)
-        $g = $g + [int][Math]::Floor((255 - $g) * 3 / 5)
-        $b = $b + [int][Math]::Floor((255 - $b) * 3 / 5)
-        return "38;2;$r;$g;$b"
-    }
-    return '38;5;231'
-}
-
 # Paints the text with the palette stretched across it, dark to light to dark,
-# and makes a few characters twinkle. Which ones is decided by a small integer
-# hash of the clock and the position, so both implementations agree exactly;
-# Seed -1 means "now", any other seed gives a fixed picture.
+# and makes a few characters twinkle by jumping to the opposite cell of the
+# ramp: a dark character flashes light, a light one flashes dark, so every
+# position visibly changes. Which ones is decided by a small integer hash of
+# the clock and the position, so both implementations agree exactly; Seed -1
+# means "now", any other seed gives a fixed picture.
 function Get-GradientText {
     param([string]$Text, [string]$PaletteName, [long]$Seed = -1)
 
@@ -601,7 +588,7 @@ function Get-GradientText {
             $x = ($Seed * 31 + $i * 7 + 13) % 2147483647
             $x = ($x * 48271) % 2147483647
             $x = ($x * 48271) % 2147483647
-            if (($x % $SparkleEvery) -eq 0) { $code = Get-Sparkle $code }
+            if (($x % $SparkleEvery) -eq 0) { $code = $ramp[($idx + [int][Math]::Floor($n / 2)) % $n] }
         }
         [void]$sb.Append($Esc).Append('[').Append($code).Append('m').Append($Text[$i])
     }

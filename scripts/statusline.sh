@@ -20,7 +20,7 @@ BAR_GAP=''      # cells are flush; the glyph provides its own separation
 BAR_PAD=''      # spacing just inside the brackets
 DIR_MAX=32      # project name is left-truncated past this many characters
 
-STATUSLINE_VERSION='1.4.0'
+STATUSLINE_VERSION='1.4.1'
 
 # Run with no arguments (the way Claude Code calls it) to print the status line.
 #   --roll      roll today's mascot (once a day) and exit
@@ -65,7 +65,7 @@ SHOW_MASCOT_TALK=1
 # every refreshInterval (the installer sets 2), so keep the two equal.
 ANIM_SECS=2
 # Legend sparkle: the palette lies still across the face, and on every redraw
-# one character in SPARKLE_EVERY lights up towards white, picked by the clock
+# one character in SPARKLE_EVERY flips to the opposite colour, picked by the clock
 # so the twinkle wanders. 1 lights everything, 0 turns the twinkle off.
 SPARKLE_EVERY=4
 # 24-bit colour for the legend ramp. Set 0 on a terminal that only knows 256
@@ -725,10 +725,11 @@ awk_counts_chars() {
 }
 
 # Paints the text with the palette ($3, one SGR parameter per cell) stretched
-# across it, dark to light to dark, and makes a few characters twinkle. Which
-# ones is decided by a small integer hash of the seed ($2) and the position, so
-# both implementations agree exactly. A 24-bit code is lifted 3/5 of the way
-# to white; a 256-colour code just becomes white.
+# across it, dark to light to dark, and makes a few characters twinkle by
+# jumping to the opposite cell of the ramp: a dark character flashes light, a
+# light one flashes dark, so every position visibly changes. Which ones is
+# decided by a small integer hash of the seed ($2) and the position, so both
+# implementations agree exactly.
 grad_text() {
     printf %s "$1" | awk -v seed="$2" -v esc="$ESC" -v rb="$3" -v every="$SPARKLE_EVERY" '
         BEGIN { n = split(rb, C, " ") }
@@ -742,17 +743,7 @@ grad_text() {
                     x = (seed * 31 + (i - 1) * 7 + 13) % 2147483647
                     x = (x * 48271) % 2147483647
                     x = (x * 48271) % 2147483647
-                    if (x % every == 0) {
-                        if (substr(code, 1, 5) == "38;2;") {
-                            split(code, P, ";")
-                            r = P[3] + int((255 - P[3]) * 3 / 5)
-                            g = P[4] + int((255 - P[4]) * 3 / 5)
-                            b = P[5] + int((255 - P[5]) * 3 / 5)
-                            code = sprintf("38;2;%d;%d;%d", r, g, b)
-                        } else {
-                            code = "38;5;231"
-                        }
-                    }
+                    if (x % every == 0) code = C[((idx + int(n / 2)) % n) + 1]
                 }
                 printf "%s[%sm%s", esc, code, substr($0, i, 1)
             }
