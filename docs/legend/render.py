@@ -4,96 +4,22 @@ import sys, unicodedata, os
 
 # tier -> [(name, [frames...])]
 FACES = {
-    'error': [
-        ('Oops', ['（；へ；）', '（；ㅅ；）']),
-    ],
-    'common': [
-        ('Kitten',   ['（・ω・）', '（－ω－）']),
-        ('Droopy',   ['（´･ω･）', '（´-ω-）']),
-        ('Snooze',   ['（ ˘ω˘ ）z', '（ ˘ω˘ ）Z']),
-        ('Whiskers', ['（=・ω・=）', '（=－ω－=）']),
-        ('Grin',     ['（・∀・）', '（－∀－）']),
-        ('Smiley',   ['（・◡・）', '（－◡－）']),
-        ('Side-eye', ['（￢_￢）', '（￢‿￢）']),
-        ('Bored',    ['（´-ι_-｀）', '（´-ι.-｀）']),
-        ('Blank',    ['（・_・）', '（－_－）']),
-        ('Smirk',    ['（≖‿≖）', '（≖_≖）']),
-        ('Scowl',    ['（◣_◢）', '（◢_◣）']),
-        ('Deadpan',  ['（ー_ー）', '（ー.ー）']),
-    ],
-    'uncommon': [
-        ('Giggle',   ['（๑˃ᴗ˂）', '（๑˂ᴗ˃）']),
-        ('Rosy',     ['（｡･ω･｡）', '（｡-ω-｡）']),
-        ('Beam',     ['（^▽^）', '（^∇^）']),
-        ('Bright',   ['（◕‿◕）', '（◠‿◠）']),
-        ('Squee',    ['（≧ω≦）', '（≧▽≦）']),
-        ('Wink',     ['（･ω<）', '（-ω<）']),
-        ('Stare',    ['（ㆆ_ㆆ）', '（ㆆ.ㆆ）']),
-        ('Eyeroll',  ['（◔_◔）', '（◔‸◔）']),
-        ('Pout',     ['（｡>ㅅ<｡）', '（｡>ㅂ<｡）']),
-        ('Hamster',  ['（・ㅂ・）', '（－ㅂ－）']),
-        ('Sly',      ['（¬‿¬）', '（¬_¬）']),
-        ('Shifty',   ['（◑_◑）', '（◐_◐）']),
-    ],
-    'rare': [
-        ('Twinkle',     ['（๑˃ᴗ˂）◇', '（๑˂ᴗ˃）◆']),
-        ('Cheer',       ['ヽ（•‿•）ノ', 'ヾ（•‿•）ノ']),
-        ('Glow',        ['（◕‿◕）◇', '（◠‿◠）◆']),
-        ('Hooray',      ['\\（^o^）/', '\\（^O^）/']),
-        ('Starry',      ['（๑◇‿◇๑）', '（๑◆‿◆๑）']),
-        ('Wave',        ['ヽ（^ω^）ノ', 'ヾ（^ω^）ノ']),
-        ('Smug',        ['（￣ｰ￣）◇', '（￣ｰ￣）◆']),
-        ('Shades',      ['（▼ω▼）◇', '（▼ω▼）◆']),
-        ('Kiss',        ['（´ε｀）♡', '（´ε｀）♥']),
-        ('Knowing',     ['（￢‿￢）◇', '（￢‿￢）◆']),
-        ('Starstruck',  ['（★ω★）', '（☆ω☆）']),
-        ('Gunslinger',  ['（☞°ヮ°）☞', '（☜°ヮ°）☜']),
-    ],
-    'unique': [
-        ('Superstar', ['╰（☆▽☆）╯', '╰（★▽★）╯']),
-        ('Jubilee', ['╭（◕ヮ◕）╮', '╭（◠ヮ◠）╮']),
-        ('Lovestruck', ['╰（♡‿♡）╯', '╰（♥‿♥）╯']),
-        ('Dazzle', ['┗（•∇•）┛', '┗（•▽•）┛']),
-        ('Hurrah', ['＼（◕ᴗ◕）／', '＼（◠ᴗ◠）／']),
-        ('Boss', ['╰（￣ヘ￣）╯', '╰（￣〜￣）╯']),
-        ('Fury', ['╰（╬◣_◢）╯', '╰（╬◢_◣）╯']),
-        ('Skeptic', ['┗（￢_￢）┛', '┗（￢‿￢）┛']),
-        ('Villain', ['╭（╬￣ヘ￣）╮', '╭（╬￣〜￣）╮']),
-        ('Grit', ['┗（⇀‸↼）┛', '┗（⇀‿↼）┛']),
-    ],
-    'legend': [
-        ('Halo', ['·°◇（●ᴗ●）◆°·', '·°◆（●ᴗ●）◇°·', '·°◇（●o●）◆°·', '·°◆（●ᴗ●）◇°·']),
-        ('Heartthrob', ['♡ヽ（♥‿♥）ノ♥', '♥ヽ（♥‿♥）ノ♡', '♡ヽ（♥ᴗ♥）ノ♥', '♥ヽ（♥‿♥）ノ♡']),
-        ('Bliss', ['◇°（ﾉ≧∇≦）ﾉ°◆', '◆°（ﾉ≧∇≦）ﾉ°◇', '◇°（ﾉ≧ω≦）ﾉ°◆', '◆°（ﾉ≧∇≦）ﾉ°◇']),
-        ('Serenade', ['♪°·（๑ᴖ◡ᴖ๑）·°♬', '♬°·（๑ᴖ◡ᴖ๑）·°♪', '♪°·（๑ᴖoᴖ๑）·°♬', '♬°·（๑ᴖ◡ᴖ๑）·°♪']),
-        ('Monarch', ['·°◇（￣ヘ￣）◆°·', '·°◆（￣ヘ￣）◇°·', '·°◇（￣〜￣）◆°·', '·°◆（￣ヘ￣）◇°·']),
-        ('Wrath', ['◆°（╬◣_◢）°◇', '◇°（◣_◢╬）°◆', '◆°（╬◣o◢）°◇', '◇°（◣_◢╬）°◆']),
-        ('Overlord', ['≪◇（╬▼_▼）◆≫', '≪◆（▼_▼╬）◇≫', '≪◇（╬▼‿▼）◆≫', '≪◆（▼_▼╬）◇≫']),
-        ('Seraph',   ['⊰◇（◕‿◕）◆⊱', '⊱◆（◕‿◕）◇⊰', '⊰◇（◕ᴗ◕）◆⊱', '⊱◆（◕‿◕）◇⊰']),
-        ('Wyvern',   ['༺◆（◣ω◢）◇༻', '༻◇（◢ω◣）◆༺', '༺◆（◣▽◢）◇༻', '༻◇（◢ω◣）◆༺']),
-        ('Fairy',    ['ʚ◇（๑˃ᴗ˂๑）◆ɞ', 'ɞ◆（๑˂ᴗ˃๑）◇ʚ', 'ʚ◇（๑˃o˂๑）◆ɞ', 'ɞ◆（๑˂ᴗ˃๑）◇ʚ']),
-    ],
-    'dev': [
-        ('Root',   ['｛・ω・｝', '｛－ω－｝']),
-        ('Sudo',   ['⟨◕ᴗ◕⟩', '⟨◠ᴗ◠⟩']),
-        ('Kernel', ['［◉_◉］', '［◉‸◉］']),
-        ('Daemon', ['⟨◣_◢⟩', '⟨◢_◣⟩']),
-    ],
-}
+    'error': [('Oops', ['（；へ；）', '（；ㅅ；）'])],
+    'common': [('Kitten', ['（・ω・）', '（－ω－）']), ('Cozy', ['（´ ᴗ ｀）', '（´ ᴖ ｀）']), ('Snooze', ['（ ˘ᴗ˘ ）z', '（ ˘ᴗ˘ ）Z']), ('Whiskers', ['（=・ェ・=）', '（=－ェ－=）']), ('Grin', ['（・∀・）', '（－∀－）']), ('Smiley', ['（˙◡˙）', '（˙‿˙）']), ('Side-eye', ['（￢_￢）', '（￢‿￢）']), ('Bored', ['（´-ι_-｀）', '（´-ι.-｀）']), ('Blank', ['（・_・）', '（・.・）']), ('Smirk', ['（≖‿≖）', '（≖_≖）']), ('Scowl', ['（◣‸◢）', '（◢‸◣）']), ('Pleased', ['（＾ｖ＾）', '（＾ｕ＾）'])],
+    'uncommon': [('Giggle', ['（๑˃ᴗ˂）', '（๑˂ᴗ˃）']), ('Rosy', ['（｡•ᴗ•｡）', '（｡•ᴖ•｡）']), ('Beam', ['（^▽^）', '（^∇^）']), ('Bright', ['（◕‿◕）', '（◠‿◠）']), ('Squee', ['（≧Д≦）', '（≧∀≦）']), ('Wink', ['（･ᵕ<）', '（-ᵕ<）']), ('Stare', ['（ㆆ_ㆆ）', '（ㆆ.ㆆ）']), ('Eyeroll', ['（◔_◔）', '（◔‸◔）']), ('Pout', ['（｡>ㅅ<｡）', '（｡>ㅁ<｡）']), ('Hamster', ['（・ㅂ・）', '（－ㅂ－）']), ('Dizzy', ['（＠_＠）', '（＠.＠）']), ('Gasp', ['（⊙o⊙）', '（⊙O⊙）'])],
+    'rare': [('Twinkle', ['（･ᴗ･）◇', '（-ᴗ-）◆']), ('Cheer', ['ヽ（•‿•）ノ', 'ヾ（•‿•）ノ']), ('Blossom', ['（◕‿◕）✿', '（◠‿◠）❀']), ('Hooray', ['\\（^o^）/', '\\（^O^）/']), ('Melody', ['（´▽｀）♪', '（´▽｀）♬']), ('Wave', ['（・ω・）ノ', '（－ω－）ノ']), ('Smug', ['（￣ｰ￣）ゞ', '（￣ｰ￣）ゝ']), ('Cool', ['（▼ω▼）b', '（▼ω▼）d']), ('Kiss', ['（´ε｀）♡', '（´ε｀）♥']), ('Scheme', ['（￢‿￢）☆', '（￢‿￢）★']), ('Gunslinger', ['（☞°ヮ°）☞', '（☜°ヮ°）☜']), ('Shrug', ['┐（´～｀）┌', '┐（´〜｀）┌'])],
+    'unique': [('Superstar', ['╰（☆▽☆）╯', '╰（★▽★）╯']), ('Jubilee', ['╭（◕ヮ◕）╮', '╭（◠ヮ◠）╮']), ('Lovestruck', ['┗（♡‿♡）┛', '┗（♥‿♥）┛']), ('Dazzle', ['＼（•∇•）／', '＼（•▽•）／']), ('Hurrah', ['⊂（＾ᴗ＾）⊃', '⊂（＾ᴖ＾）⊃']), ('Boss', ['╰（￣ヘ￣）╯', '╰（￣〜￣）╯']), ('Fury', ['┗（╬◣_◢）┛', '┗（╬◢_◣）┛']), ('Skeptic', ['⊂（￢_￢）⊃', '⊂（￢‿￢）⊃']), ('Villain', ['╭（▼ヘ▼）╮', '╭（▼〜▼）╮']), ('Grit', ['＼（⇀‸↼）／', '＼（⇀‿↼）／'])],
+    'legend': [('Halo', ['彡☆（●ᴗ●）☆ミノ', 'ヽ彡☆（●ᴗ●）☆ミ', '彡☆（●o●）☆ミノ', 'ヽ彡☆（●ᴗ●）☆ミ']), ('Wrath', ['ψ（╬◣_◢）ψ!', '!ψ（◣_◢╬）ψ', 'ψ（╬◣o◢）ψ!', '!ψ（◣_◢╬）ψ']), ('Overlord', ['≪（▼_▼）≫†', '†≪（▼_▼）≫', '≪（▼‿▼）≫†', '†≪（▼_▼）≫']), ('Seraph', ['⊰（◕‿◕）⊱☆', '☆⊰（◕‿◕）⊱', '⊰（◕ᴗ◕）⊱☆', '☆⊰（◕‿◕）⊱']), ('Wyvern', ['༺（◈ω◈）༻ζ', 'ζ༺（◈ω◈）༻', '༺（◈▽◈）༻ζ', 'ζ༺（◈ω◈）༻'])],
+    'dev': [('Root', ['｛・ω・｝', '｛－ω－｝']), ('Sudo', ['⟨◕ᴗ◕⟩', '⟨◠ᴗ◠⟩']), ('Kernel', ['［◉_◉］', '［◉‸◉］']), ('Daemon', ['⟨◣_◢⟩', '⟨◢_◣⟩'])]}
 
 # legend index -> palette name, mood-matched
-LEGEND_PALETTES = ['dawn', 'crimson', 'royal', 'abyss', 'amethyst', 'ember', 'radiance', 'sapphire', 'emerald', 'orchid']
+LEGEND_PALETTES = ['dawn', 'ember', 'radiance', 'sapphire', 'emerald']
 LEGEND_DESC = {
-    'dawn':     '금빛에서 크림색으로',
-    'crimson':  '자주에서 분홍으로',
-    'royal':    '주홍에서 살구색으로',
-    'abyss':    '청록에서 얼음빛으로',
-    'amethyst': '연초록에서 파랑으로',
-    'ember':    '진한 붉은색에서 연한 붉은색으로',
-    'radiance': '연보라에서 흰빛과 은색으로',
-    'sapphire': '파랑에서 연한 하늘색으로',
+    'dawn':    '금빛에서 크림색으로',
+    'ember':   '진한 붉은색에서 연한 붉은색으로',
+    'radiance':'연보라에서 흰빛과 은색으로',
+    'sapphire':'파랑에서 연한 하늘색으로',
     'emerald': '초록에서 연한 민트로',
-    'orchid': '자주에서 연보라로',
 }
 # RGB keyframes of each legend ramp. The scripts interpolate them into
 # GRADIENT_STEPS cells around a closed loop, so the band flows back into
@@ -103,16 +29,11 @@ LEGEND_DESC = {
 #   dawn gold, crimson pink, royal tangerine, abyss cyan-ice, amethyst
 #   green-to-navy, ember blood red, radiance lavender-silver.
 PALETTES = {
-    'dawn':     ['8f6508', 'd09a00', 'ffcc33', 'ffe9a3', 'fff8e1'],
-    'crimson':  ['a0124a', 'dc2a66', 'ff5c8a', 'ff8fb3', 'ffc4dc'],
-    'royal':    ['a83f08', 'e8661a', 'ff9a2e', 'ffc98a', 'ffe6c7'],
-    'abyss':    ['0a6e82', '14a9c6', '3fe0ff', 'a8f4ff', 'e6fdff'],
-    'amethyst': ['b8ffb0', '5fe07a', '2bb08a', '2b6fc4', '2b4aa8'],
-    'ember':    ['a82524', 'd63c3c', 'ff6464', 'ff9595', 'ffbdb5'],
-    'radiance': ['8a78e0', 'bfb2f5', 'ece6ff', 'ffffff', 'd0d5e0', 'a9afc0'],
-    'sapphire': ['2a3fbf', '3f63e0', '6a8cff', 'a0b8ff', 'd6e0ff'],
-    'emerald':  ['0f7a4a', '17a86a', '3fd68f', '8ff0c0', 'd0ffe8'],
-    'orchid':   ['8a1f9c', 'b53fc9', 'dc6cf0', 'ef9dff', 'f8cfff'],
+    'dawn':    ['8f6508', 'd09a00', 'ffcc33', 'ffe9a3', 'fff8e1'],
+    'ember':   ['a82524', 'd63c3c', 'ff6464', 'ff9595', 'ffbdb5'],
+    'radiance':['8a78e0', 'bfb2f5', 'ece6ff', 'ffffff', 'd0d5e0', 'a9afc0'],
+    'sapphire':['2b4aa8', '3f70e0', '6a9cff', 'a0c4ff', 'd6e6ff'],
+    'emerald': ['0f7a4a', '17a86a', '3fd68f', '8ff0c0', 'd0ffe8'],
 }
 GRADIENT_STEPS = 36
 
@@ -246,7 +167,7 @@ def ramp_codes(keys, true_color, n=GRADIENT_STEPS):
     return out
 
 
-PALETTE_ORDER = ['dawn', 'crimson', 'royal', 'abyss', 'amethyst', 'ember', 'radiance', 'sapphire', 'emerald', 'orchid']
+PALETTE_ORDER = ['dawn', 'ember', 'radiance', 'sapphire', 'emerald']
 
 
 def ps_ramps():
@@ -292,7 +213,7 @@ def html_page():
         'legendPalettes': LEGEND_PALETTES,
         'ramps': ramps,
         'unique': ramp_linear(UNIQUE_KEYS, UNIQUE_STEPS),
-        'flat': {'common': xterm_hex(253), 'uncommon': xterm_hex(82), 'rare': xterm_hex(117)},
+        'flat': {'common': xterm_hex(253), 'uncommon': xterm_hex(120), 'rare': xterm_hex(117)},
         'labels': {'common': '커먼', 'uncommon': '언커먼', 'rare': '레어', 'unique': '유니크', 'legend': '레전드'},
         'talk': {'common': '냥!', 'uncommon': '다했다!', 'rare': '끝났어요', 'unique': '다 끝냈습니다!', 'legend': '전부 끝냈습니다, 확인 부탁드려요!'},
     }
@@ -322,8 +243,8 @@ const D = """ + json.dumps(data, ensure_ascii=False) + """;
 const root = document.getElementById('root');
 function hash(seed, i, every){ let x=(seed*31+i*7+13)%2147483647; x=(x*48271)%2147483647; x=(x*48271)%2147483647; return x%every===0; }
 function paintLegend(text, ramp, seed){
-  const n=ramp.length, lo=Math.floor(n/8), hi=Math.floor(n*3/8), peak=Math.floor(n/2), len=[...text].length;
-  return [...text].map((ch,i)=>{ const d=Math.abs(2*i-(len-1)); let idx=len>1? hi-Math.floor((hi-lo)*d/(len-1)) : hi; if(hash(seed,i,4)) idx=peak; return '<span style="color:'+ramp[idx]+'">'+ch+'</span>'; }).join('');
+  const n=ramp.length, lo=0, hi=Math.floor(n/2), len=[...text].length;
+  return [...text].map((ch,i)=>{ const d=Math.abs(2*i-(len-1)); let idx=len>1? hi-Math.floor((hi-lo)*d/(len-1)) : hi; let col=ramp[idx]; if(hash(seed,i,4)){ const v=parseInt(col.slice(1),16); const lum=(((v>>16)&255)*299+((v>>8)&255)*587+(v&255)*114)/1000; col = lum>170 ? ramp[0] : ramp[hi]; } return '<span style="color:'+col+'">'+ch+'</span>'; }).join('');
 }
 function paintUnique(text){ const r=D.unique, n=r.length, len=[...text].length; return [...text].map((ch,i)=>{ const idx=len>1?Math.floor(i*(n-1)/(len-1)):0; return '<span style="color:'+r[idx]+'">'+ch+'</span>'; }).join(''); }
 function flat(text,c){ return '<span style="color:'+c+'">'+text+'</span>'; }
@@ -343,7 +264,7 @@ function render(){
     html+='</table>';
   });
   root.innerHTML=html;
-  const w=D.tiers[4].faces[5]; document.getElementById('barface').innerHTML=paintLegend(w.frames[frame%4], D.ramps[D.legendPalettes[5]], seed)+' '+paintLegend(D.talk.legend, D.ramps[D.legendPalettes[5]], seed+1);
+  const w=D.tiers[4].faces[1]; document.getElementById('barface').innerHTML=paintLegend(w.frames[frame%4], D.ramps[D.legendPalettes[1]], seed)+' '+paintLegend(D.talk.legend, D.ramps[D.legendPalettes[1]], seed+1);
 }
 render(); setInterval(render, 2000);
 </script></body></html>
